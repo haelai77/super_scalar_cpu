@@ -1,31 +1,19 @@
-from .mappings import opcodes
-from collections import deque
-
-
-def resolve_operand(operand) -> int:
-    if  operand[0] in {'r', 'R'}:
-        return int(operand[1])
-    else:
-        return int(operand)
-
-
 def asm_to_machine(assembly) -> tuple[tuple, ...]:
+    '''converts a assembly into machine code'''
     instr_list: list[tuple] = []
 
     for line in assembly:
-        instr = line.split()
+        instr = line.split() # split line into strings by whitespace
 
-        if instr[0] not in opcodes: raise Exception("###### ERROR: opcode not in mapping / doesn't exist ######")
-
-        instr = (opcodes[instr[0]], [resolve_operand(operand) for operand in instr[1:]])
+        instr = (instr[0], instr[1:]) # (instr_typ: str, operands: str)
 
         instr_list.append(instr)
 
-    return tuple(instr_list)
+    return instr_list
 
-
-def assembler(file = "./assembly_code/instr_cache.asm") -> tuple[tuple, ...]:
-    f = open(file, "r")
+def assembler(file = "instr_cache.asm") -> tuple[tuple, ...]:
+    '''returns machine code'''
+    f = open(f"./assembly_code/{file}", "r")
     assembly = f.readlines()
     f.close()
 

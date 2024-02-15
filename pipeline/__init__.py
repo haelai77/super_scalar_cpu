@@ -1,1 +1,1 @@
-__all__ = ["Fetch_Unit", "Decode_Unit", "Execute_Unit", "Writeback_Unit"]
+__all__ = ["FetchUnit", "DecodeUnit", "ExecuteUnit", "WritebackUnit"]
