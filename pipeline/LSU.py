@@ -20,10 +20,8 @@ class LSU:
         '''memory[rf[r2] + offset] = rf[r1]
             args : r1, offset, r2'''
         
-        reg_base_val = cpu.RF.read(instr.operands[2]) # can just be zero
+        val_in_reg = cpu.RF.read(instr.operands[0])
         offset = instr.operands[1]
-        reg_to_store = cpu.RF.read(instr.operands[0])
+        reg_base_val = cpu.RF.read(instr.operands[2]) # can just be zero
 
-        print(type(reg_base_val) , type(offset))
-
-        cpu.MEM.write(reg_base_val + offset, reg_to_store)
+        cpu.MEM.write(reg_base_val + offset, val_in_reg)

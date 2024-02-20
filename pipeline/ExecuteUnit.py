@@ -10,7 +10,7 @@ class ExecuteUnit:
 
         self.exe = {
             "ADD"   : self.ADD,
-            "ADDI"  : self.ADD, # after decoding adding is the same as regs are replaced with values
+            "ADDI"  : self.ADDI, # after decoding adding is the same as regs are replaced with values
             
             "SUB"   : self.SUB,
 
@@ -39,11 +39,13 @@ class ExecuteUnit:
         instr_type = instruction.type
         self.exe[instr_type](instr=instruction, cpu=cpu)
 
-        # print(f"instr: {instr_type} \n REGS3: {cpu.RF.rf[:4]} \n pc: {cpu.PC}")
-
     def ADD(self, instr, cpu):
         '''add 2 registers and store in 3rd reg (also handels ADDI)'''
         instr.result = cpu.RF.read(instr.operands[1]) + cpu.RF.read(instr.operands[2]) # calculate result
+
+    def ADDI(self, instr, cpu):
+        instr.result = cpu.RF.read(instr.operands[1]) + instr.operands[2]
+        # print(f"R{instr.operands[0]} <- {cpu.RF.read(instr.operands[1])} + {instr.operands[2]}")
 
     def SUB(self, instr, cpu):
         '''sub 2 registers and store in 3rd reg'''
@@ -74,27 +76,28 @@ class ExecuteUnit:
     def BEQ(self, instr, cpu):
         # in MIPS +4 to pc as to move to next 32bit/4byte instruction, then you add branch displacement 
         # in this simulator the program counter is incremented by branch displacement then 1 is added back in the cpu object
-        '''relative branching if values in 2 registers are equal'''
+        '''branching if values in 2 registers are equal'''
         if cpu.RF.read(instr.operands[0]) == cpu.RF.read(instr.operands[1]):
-            cpu.PC += (instr.operands[2])
+            cpu.PC = (instr.operands[2])
+        print(cpu.RF.rf[5], cpu.RF.rf[6])    
         
     def BNE(self, instr, cpu):
-        '''relative relative branching if values in 2 registers are not equal'''
+        '''branching if values in 2 registers are not equal'''
         if cpu.RF.read(instr.operands[0]) != cpu.RF.read(instr.operands[1]):
-            cpu.PC += (instr.operands[2])
+            cpu.PC = (instr.operands[2])
     
     def BLT(self, instr, cpu):
-        '''relative branch if value in first register is less than '''
+        '''branch if value in first register is less than '''
         if cpu.RF.read(instr.operands[0]) < cpu.RF.read(instr.operands[1]):
-            cpu.PC += (instr.operands[2])
+            cpu.PC = (instr.operands[2])
 
     def BGT(self, instr, cpu):
-        '''relative branch if value in first register is greater than '''
+        '''branch if value in first register is greater than '''
         if cpu.RF.read(instr.operands[0]) > cpu.RF.read(instr.operands[1]):
-            cpu.PC += (instr.operands[2])
+            cpu.PC = (instr.operands[2])
 
     def J(self, instr, cpu):
-        '''relative branch based on immediate passed in '''
+        ''' branch based on immediate passed in '''
         cpu.PC += (instr.operands[0])
 
     def B(self, instr, cpu):
