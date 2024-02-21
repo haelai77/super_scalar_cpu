@@ -45,7 +45,6 @@ class ExecuteUnit:
 
     def ADDI(self, instr, cpu):
         instr.result = cpu.RF.read(instr.operands[1]) + instr.operands[2]
-        # print(f"R{instr.operands[0]} <- {cpu.RF.read(instr.operands[1])} + {instr.operands[2]}")
 
     def SUB(self, instr, cpu):
         '''sub 2 registers and store in 3rd reg'''
@@ -79,7 +78,6 @@ class ExecuteUnit:
         '''branching if values in 2 registers are equal'''
         if cpu.RF.read(instr.operands[0]) == cpu.RF.read(instr.operands[1]):
             cpu.PC = (instr.operands[2])
-        print(cpu.RF.rf[5], cpu.RF.rf[6])    
         
     def BNE(self, instr, cpu):
         '''branching if values in 2 registers are not equal'''

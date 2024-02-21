@@ -18,7 +18,7 @@ opcodes = {
     "ST"  : 0x08, # memory[regs[r2] + offset] = r1 //// args:  R1, offset_in_mem, R2
 
     # branch to immediate operand (COMPARISON BETWEEN REGISTERS)
-    "BEQ" : 0X09, # branch on equal a == b, args: r1 r2 immediate
+    "BEQ" : 0X09, # branch on equal a == b, args: r1 r2 LABEL
     "BNE" : 0X0A, # branch on not equal a != b
     "BLT" : 0X0B, # branch on less than a < b
     "BGT" : 0X0C, # BRANCH ON greater than a > b

@@ -62,11 +62,11 @@ class Cpu:
         
         if debug == True:
             print("FIN")
-            print("####### REGS ########")
+            print("##################### REGS ######################")
             print(*self.RF.rf, sep="\n")
-            print("####### MEM ########")
+            print("##################### MEM #######################")
             print(*self.MEM.mem, sep="\n")
-            print("###############")
+            print("#################################################")
         print("Cycles:", self.cycles)
         print("Instrs:", self.instructions)
 
