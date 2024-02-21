@@ -1,7 +1,0 @@
-LDI R1 1
-LDI R2 2
-LDI R3 10
-ADD R1 R1 R2
-BLT R1 R3 -2
-HALT
-## test kernel

@@ -3,7 +3,7 @@ from cpu_sim.Cpu import Cpu
 from pipeline import *
 import sys
 
-assembly_file = sys.argv[1] if len(sys.argv)>1 else "instr_cache.asm"
+assembly_file = sys.argv[1] if len(sys.argv)>1 else "bubble_sort.asm"
 
 instr_cache, branch_lines, debug_lines = assembler(file=assembly_file)
 
