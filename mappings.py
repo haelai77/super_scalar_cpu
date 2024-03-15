@@ -13,9 +13,9 @@ opcodes = {
     "CMP" : 0x05, # compare registers r2,r3 st in r1 args : r1 r2 r3
 
     # load and store
-    "LD"  : 0x06, # r1 <- memory[regs[r2] + offset] args: r1, offset, r2
+    "LD"  : 0x06, # r1 <- memory[regs[r2] + offset] args: r1, offset, r2 # todo needs to be r1, r2 r4 where r1 <- mem[regs[r2] + regs[r3]]
     "LDI" : 0x07, # r1 <- immediate args: r1, immediate
-    "ST"  : 0x08, # memory[regs[r2] + offset] = r1 //// args:  R1, offset_in_mem, R2
+    "ST"  : 0x08, # memory[regs[r2] + offset] = r1 //// args:  R1, offset_in_mem, R2 # todo should be indexed as well 
 
     # branch to immediate operand (COMPARISON BETWEEN REGISTERS)
     "BEQ" : 0X09, # branch on equal a == b, args: r1 r2 LABEL

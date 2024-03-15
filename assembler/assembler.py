@@ -30,7 +30,7 @@ def asm_to_machine(assembly):
         instr_list.append(instr)
     return instr_list, branch_lines, debug_lines
 
-def assembler(file = "instr_cache.asm") -> tuple[tuple, ...]:
+def assembler(file = "instr_cache.asm"):
     '''returns machine code'''
     f = open(f"./assembly_code/{file}", "r")
     assembly = f.readlines()

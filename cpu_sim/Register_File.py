@@ -1,10 +1,11 @@
 import numpy as np
 
 class Register_File:
-    def __init__(self, num_regs = 19) -> None:
+    def __init__(self, num_regs = 32) -> None:
         # R0 = 0
         # R1 to R10 = temp registers
         # R11 to R18 = saved registers representing final computed results
+        # R19 to R32 = #hack who knows
         self.rf = np.empty(shape = (num_regs,), dtype=int)
         self.rf[0] = 0
 

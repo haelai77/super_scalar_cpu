@@ -10,7 +10,14 @@ class Cpu:
         self.finished: int = 0
         self.cycles: int = 0
         self.instructions: int = 0
-        self.PC: int = 0 # instruction pointer
+        self.PC: int = 0 # instruction pointer # todo put this in register?
+
+        self.pipe = deque([self.fetch]) # holds stages of execution 
+        self.super_scaling = 1
+
+        self.units = []
+        self.unit_statuses = []
+        self.clk = 0
 
         #pipeline
         self.fetch_unit: FetchUnit.FetchUnit = fetch_unit
@@ -20,9 +27,16 @@ class Cpu:
 
         # registers and memory
         self.MEM: Memory = Memory()
-        self.RF: Register_File = Register_File(num_regs = 19) # register file  
-        self.INSTR_CACHE: list[tuple] = instr_cache
-        self.INSTR_BUFF: Deque[tuple] = deque(maxlen = 8) # instruction buffer size: 8 ints
+        self.RF: Register_File = Register_File(num_regs = 32) # register file  
+        self.INSTR_CACHE = instr_cache
+        self.INSTR_BUFF = deque(maxlen = 8) # instruction buffer size: 8 ints
+
+        # stage transitions
+        self.transition = {
+            self.fetch   : self.decode,
+            self.decode  : self.execute,
+            self.execute : self.writeback
+        }
 
 
     ### pipeline functions ###
@@ -47,18 +61,30 @@ class Cpu:
     
     ##########################
 
-    def run(self, debug = False):
+    def run(self, debug = False, pipelined = False):
         '''runs the cpu simulation'''
-        # read instructions into memory i.e. from instruction buffer into memory
         while(not self.finished):
-            self.fetch() # fetches instruction from instruction cache and places it into the instruction buffer
-            self.decode() # decodes what instruction is meant to be used
-            self.execute() # do instruction
-            self.writeback()
+            if pipelined:
+                for _ in range(len(self.pipe)): # iterate through 
+                    stage = self.pipe.popleft()
+                    stage()
 
-            self.instructions += 1
-            self.cycles += 4
+                    # NOTE this is how many new instructions can be processed at once i.e. the self.superscaling. When super-scaling we need more execution units
+                    self.pipe.extend([self.fetch] * self.super_scaling) 
+
+                    if stage != self.writeback: 
+                        self.pipe.append(self.transition[stage])
+            else:
+                stage = self.pipe.popleft()
+                stage()
+
+                if stage == self.writeback:
+                    self.pipe.append(self.fetch)
+
+            self.clk += 1
+            self.cycles += 1
             self.PC += 1
+            self.instructions += 1
         
         if debug == True:
             print("FIN")
