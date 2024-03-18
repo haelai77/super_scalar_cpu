@@ -16,7 +16,7 @@
 
 # fill memory with 10 -> 1 at index 0 to 9
 NEXT:
-    ST R1 0 R3
+    ST R1 R0 R3
     ADDI R3 R3 1 
     ADDI R1 R1 -1
     BNE R1 R2 NEXT
@@ -25,16 +25,16 @@ NEXT:
 
 SWAP_CHECK:   
     # LOAD MEM LOCATION AT 2 POINTERS INTO R3 AND R4
-    LD R3 0 R1
-    LD R4 0 R2
+    LD R3 R0 R1
+    LD R4 R0 R2
     BGT R3 R4 RESET_COUNTER_&_SWAP
     ADDI R6 R6 1
     B CONTINUE
 
 RESET_COUNTER_&_SWAP:
     LDI R6 0
-    ST R4 0 R1
-    ST R3 0 R2
+    ST R4 R0 R1
+    ST R3 R0 R2
     B CONTINUE
 
 INIT_POINTERS:

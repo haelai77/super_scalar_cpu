@@ -3,10 +3,14 @@ from collections import deque
 from typing import Deque
 from .LSU import LSU
 
+
 class ExecuteUnit:
     def __init__(self) -> None:
         self.RS: Deque[tuple] = deque(maxlen = 8)
         self.LSU = LSU()
+        self.AVAILABLE = True
+        self.instr: Instruction = None 
+        self.cycle_latency = 0
 
         self.exe = {
             "ADD"   : self.ADD,
@@ -19,9 +23,9 @@ class ExecuteUnit:
 
             "CMP"   : self.CMP,
 
-            "LD"    : self.LSU.LD,
+            "LD"    : self.LD, # address resolution
             "LDI"   : self.LSU.LDI,
-            "ST"    : self.LSU.ST,
+            "ST"    : self.ST, # address resolution
 
             "BEQ"   : self.BEQ,
             "BNE"   : self.BNE,
@@ -35,9 +39,23 @@ class ExecuteUnit:
         }
 
     def execute(self, cpu):
-        instruction: Instruction = cpu.INSTR_BUFF[0]
-        instr_type = instruction.type
-        self.exe[instr_type](instr=instruction, cpu=cpu)
+        # issuing step sets up the latency
+        self.AVAILABLE = False
+
+        if self.cycle_latency > 0:
+            self.cycle_latency -= 1
+            return
+        else:
+            print(f"Executing: latency {self.cycle_latency}")
+            pass
+        
+        print(f"Executing: {self.instr}")
+        instr_type = self.instr.type
+        self.exe[instr_type](instr=self.instr, cpu=cpu)
+        self.instr.done = True
+        self.instr = None
+
+        self.AVAILABLE = True
 
     def ADD(self, instr, cpu):
         '''add 2 registers and store in 3rd reg (also handels ADDI)'''
@@ -71,6 +89,21 @@ class ExecuteUnit:
             result = 0
         
         instr.result = result
+
+    def LD(self, instr, cpu):
+        '''r1 <- mem[regs[r2] + regs[r3]] ARGS: r1, offset_reg, bp_reg'''
+        # address resolution and then call LSU
+        offset = cpu.RF.read(instr.operands[1])
+        bp = cpu.RF.read(instr.operands[2])
+        instr.operands[1] = offset+bp
+        self.LSU.LD(instr, cpu)
+    
+    def ST(self, instr, cpu):
+        '''mem[regs[r2] + regs[r3]] <- r1'''
+        offset = cpu.RF.read(instr.operands[1])
+        bp = cpu.RF.read(instr.operands[2])
+        instr.operands[1] = offset+bp
+        self.LSU.ST(instr, cpu)
 
     def BEQ(self, instr, cpu):
         # in MIPS +4 to pc as to move to next 32bit/4byte instruction, then you add branch displacement 

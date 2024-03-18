@@ -6,7 +6,8 @@ class Register_File:
         # R1 to R10 = temp registers
         # R11 to R18 = saved registers representing final computed results
         # R19 to R32 = #hack who knows
-        self.rf = np.empty(shape = (num_regs,), dtype=int)
+        # self.rf = np.empty(shape = (num_regs,), dtype=int)
+        self.rf = np.zeros(shape = (num_regs,), dtype=int)
         self.rf[0] = 0
 
     def write(self, idx, value):

@@ -6,93 +6,108 @@ from .Register_File import Register_File
 from .Memory import Memory
 
 class Cpu:
-    def __init__(self, instr_cache, fetch_unit, decode_unit, execute_unit, writeback_unit):
+    def __init__(self, instr_cache, fetch_unit, decode_unit, execute_units, writeback_unit):
+        self.pipelined = False
+
         self.finished: int = 0
-        self.cycles: int = 0
         self.instructions: int = 0
         self.PC: int = 0 # instruction pointer # todo put this in register?
 
         self.pipe = deque([self.fetch]) # holds stages of execution 
         self.super_scaling = 1
 
-        self.units = []
-        self.unit_statuses = []
-        self.clk = 0
+        self.exec_units = []
+        self.clk_cycles = 0
 
         #pipeline
-        self.fetch_unit: FetchUnit.FetchUnit = fetch_unit
-        self.decode_unit: DecodeUnit.DecodeUnit = decode_unit
-        self.execute_unit: ExecuteUnit.ExecuteUnit = execute_unit
-        self.writeback_unit: WritebackUnit.WritebackUnit = writeback_unit
+        self.fetch_unit = fetch_unit
+        self.decode_unit = decode_unit
+        self.execute_units = execute_units
+        self.writeback_unit = writeback_unit
 
         # registers and memory
         self.MEM: Memory = Memory()
         self.RF: Register_File = Register_File(num_regs = 32) # register file  
         self.INSTR_CACHE = instr_cache
         self.INSTR_BUFF = deque(maxlen = 8) # instruction buffer size: 8 ints
-
+        
+        self.debug = False
         # stage transitions
         self.transition = {
             self.fetch   : self.decode,
-            self.decode  : self.execute,
+            self.decode  : self.issue,
+            self.issue   : self.execute,
             self.execute : self.writeback
         }
 
-
     ### pipeline functions ###
-
     def fetch(self, num_to_fetch = 1) -> int:
         '''Gets 1 instruction from memory and places it in the instruction buffer INSTR'''
         self.fetch_unit.fetch(cpu=self, num_to_fetch=num_to_fetch)
-        # self.pc += num_to_fetch # increase program counter to move to next instruction
-
+        self.PC += 1
 
     def decode(self): # decodes what the instruction is
         '''Determines what the first instruction is in the isntruction buffer INSTR'''
         self.decode_unit.decode(cpu=self)
 
+    def issue(self):
+        '''Issues instructions to available execution units if possible'''
+        if not self.decode_unit.issue(cpu=self):
+            print(f"    stall: could not issue instruction || cycle:{self.clk_cycles}")
 
     def execute(self):
         '''Executes the first instruction in the instruction buffer and removes it from the instruction buffer'''
-        self.execute_unit.execute(cpu=self)
+        for unit in self.execute_units:
+            unit.execute(cpu=self)
 
     def writeback(self):
-        self.writeback_unit.writeback(cpu=self)
-    
+        if self.writeback_unit.writeback(cpu=self):
+            self.instructions += 1
+
     ##########################
 
-    def run(self, debug = False, pipelined = False):
+    def run(self, debug, pipelined = False):
         '''runs the cpu simulation'''
+        self.debug = debug
+        self.pipelined = pipelined
+        print(f"pipelined : {self.pipelined}")
+        print(f"debug : {self.debug}")
+
+        # while(self.INSTR_CACHE[self.PC][0] != "HALT"):
         while(not self.finished):
-            if pipelined:
-                for _ in range(len(self.pipe)): # iterate through 
+            # if self.debug: print(f"Instruction_buffer: {self.INSTR_BUFF}")
+
+            if self.pipelined:
+                for _ in range(len(self.pipe)): # iterate through all stages in the pipe
                     stage = self.pipe.popleft()
                     stage()
 
-                    # NOTE this is how many new instructions can be processed at once i.e. the self.superscaling. When super-scaling we need more execution units
-                    self.pipe.extend([self.fetch] * self.super_scaling) 
-
-                    if stage != self.writeback: 
+                    if stage != self.writeback: # if the stage wasn't write back add the next corresponding step
                         self.pipe.append(self.transition[stage])
+
+                # prep more fetches but not exceeding end of instr cache
+                self.pipe.extend([self.fetch])
+                self.clk_cycles += 1
+
+                if self.debug: print(f"############# {len(self.pipe)} {self.super_scaling}")
             else:
                 stage = self.pipe.popleft()
                 stage()
 
-                if stage == self.writeback:
+                if stage != self.writeback:
+                    self.pipe.append(self.transition[stage])
+                else:
                     self.pipe.append(self.fetch)
 
-            self.clk += 1
-            self.cycles += 1
-            self.PC += 1
-            self.instructions += 1
-        
+                self.clk_cycles += 1
+
         if debug == True:
             print("FIN")
             print("##################### REGS ######################")
-            print(*self.RF.rf, sep="\n")
+            print(*self.RF.rf, sep=" ")
             print("##################### MEM #######################")
-            print(*self.MEM.mem, sep="\n")
+            print(*self.MEM.mem, sep=" ")
             print("#################################################")
-        print("Cycles:", self.cycles)
+        print("Cycles:", self.clk_cycles)
         print("Instrs:", self.instructions)
 

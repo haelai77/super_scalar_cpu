@@ -1,18 +1,24 @@
 from assembler.assembler import assembler
 from cpu_sim.Cpu import Cpu
 from pipeline import *
-import sys
+import argparse
 
-assembly_file = sys.argv[1] if len(sys.argv)>1 else "bubble_sort.asm"
 
-instr_cache, branch_lines, debug_lines = assembler(file=assembly_file)
+parser = argparse.ArgumentParser()
+parser.add_argument("-pipelined", action="store_true")
+parser.add_argument("-debug", action="store_true")
+parser.add_argument("-f", default="bubble_sort.asm")
+parser.add_argument("-n_exec", default = 1)
+args = parser.parse_args()
 
+
+instr_cache, branch_lines, debug_lines = assembler(file=args.f)
 
 if len(instr_cache) == 0:
-    raise Exception(f"{assembly_file} is empty")
+    raise Exception(f"{args.f} is empty")
 
 # print(*instr_cache, sep="\n")
-print("################ debug_lines")
+print(f"################ debug_lines {args.f}")
 for key, value in debug_lines.items():
     print(key, value)
 print("################  branch_lines")
@@ -22,10 +28,10 @@ print("################")
 
 fetch_unit = FetchUnit.FetchUnit(debug_lines)
 decode_unit = DecodeUnit.DecodeUnit(branch_label_map=branch_lines)
-execute_unit = ExecuteUnit.ExecuteUnit()
+execute_units = [ExecuteUnit.ExecuteUnit()] * args.n_exec
 writeback_unit = WritebackUnit.WritebackUnit()
 
-cpu = Cpu(instr_cache, fetch_unit, decode_unit, execute_unit, writeback_unit)
+cpu = Cpu(instr_cache, fetch_unit, decode_unit, execute_units, writeback_unit)
 
 
-cpu.run(debug=True)
+cpu.run(debug=args.debug, pipelined=args.pipelined )

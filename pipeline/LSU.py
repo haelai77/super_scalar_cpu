@@ -2,13 +2,10 @@ class LSU:
     def __init__(self) -> None:
         pass
 
-    def LD(self, instr, cpu):
+    def LD(self, instr, cpu): 
         '''writes mem[baseAddr + offset] into resReg'''
         resAddr = instr.operands[0]
-        offset = instr.operands[1] # immediate
-        reg_base_val = cpu.RF.read(instr.operands[2]) # can just be zero
-
-        mem_val = cpu.MEM.read(reg_base_val+offset)
+        mem_val = cpu.MEM.read(instr.operands[1])
         cpu.RF.write(resAddr, mem_val)
 
     def LDI(self, instr, cpu):
@@ -17,11 +14,10 @@ class LSU:
         cpu.RF.write(resAddr, instr.operands[1])
 
     def ST(self, instr, cpu):
-        '''memory[rf[r2] + offset] = rf[r1]
-            args : r1, offset, r2'''
+        '''memory[rf[r2] + rf[r3]] <- rf[r1]
+           args : r1, offset, r2'''
         
-        val_in_reg = cpu.RF.read(instr.operands[0])
-        offset = instr.operands[1]
-        reg_base_val = cpu.RF.read(instr.operands[2]) # can just be zero
+        val_to_st = cpu.RF.read(instr.operands[0])
+        address_in_mem = instr.operands[1]
 
-        cpu.MEM.write(reg_base_val + offset, val_in_reg)
+        cpu.MEM.write(address_in_mem, val_to_st)

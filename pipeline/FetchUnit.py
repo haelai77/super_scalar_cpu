@@ -7,7 +7,7 @@ class FetchUnit:
         '''fetches instruction(s) from instruction cache and places them into the instruction buffer'''
         # take instruction from instruction cache
         curr_instrs = cpu.INSTR_CACHE[cpu.PC : cpu.PC + num_to_fetch]
-        # print(f"fetch: {self.debug_lines[(curr_instrs[0][0], cpu.PC)]} PC: {cpu.PC}")
+        print(f"Fetching: {curr_instrs}")
 
         # put instruction into the instruction buffer
         cpu.INSTR_BUFF.extend(curr_instrs)
