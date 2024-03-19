@@ -66,17 +66,18 @@ class Cpu:
 
     ##########################
 
-    def run(self, debug, pipelined = False):
+    def run(self, debug, step_toggle = False, pipelined = False):
         '''runs the cpu simulation'''
         self.debug = debug
         self.pipelined = pipelined
         print(f"pipelined : {self.pipelined}")
         print(f"debug : {self.debug}")
 
-        # while(self.INSTR_CACHE[self.PC][0] != "HALT"):
-        while(not self.finished):
-            # if self.debug: print(f"Instruction_buffer: {self.INSTR_BUFF}")
+        
 
+        # while(self.INSTR_CACHE[self.PC][0] != "HALT"):
+        while (not self.finished):
+            # if self.debug: print(f"Instruction_buffer: {self.INSTR_BUFF}")
             if self.pipelined:
                 for _ in range(len(self.pipe)): # iterate through all stages in the pipe
                     stage = self.pipe.popleft()
@@ -100,6 +101,9 @@ class Cpu:
                     self.pipe.append(self.fetch)
 
                 self.clk_cycles += 1
+                
+            if step_toggle:
+                input("take step")
 
         if debug == True:
             print("FIN")

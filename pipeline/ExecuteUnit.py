@@ -5,12 +5,14 @@ from .LSU import LSU
 
 
 class ExecuteUnit:
-    def __init__(self) -> None:
+    def __init__(self, ID) -> None:
         self.RS: Deque[tuple] = deque(maxlen = 8)
         self.LSU = LSU()
         self.AVAILABLE = True
         self.instr: Instruction = None 
         self.cycle_latency = 0
+        self.ID = ID
+        #todo add reservation stations and make units take instructions of these first then afterwards issuing can do bypassing
 
         self.exe = {
             "ADD"   : self.ADD,
@@ -40,19 +42,19 @@ class ExecuteUnit:
 
     def execute(self, cpu):
         # issuing step sets up the latency
-        self.AVAILABLE = False
 
+        if self.instr == None:
+            return
+        
         if self.cycle_latency > 0:
             self.cycle_latency -= 1
+            print(f"Executing {self.ID}: latency {self.cycle_latency}, {self.instr}")
             return
-        else:
-            print(f"Executing: latency {self.cycle_latency}")
-            pass
         
-        print(f"Executing: {self.instr}")
         instr_type = self.instr.type
         self.exe[instr_type](instr=self.instr, cpu=cpu)
         self.instr.done = True
+        print(f"Executing {self.ID}: {self.instr}")
         self.instr = None
 
         self.AVAILABLE = True

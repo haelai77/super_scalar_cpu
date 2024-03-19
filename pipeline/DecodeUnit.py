@@ -16,7 +16,7 @@ class DecodeUnit:
             "CMP"   : 4,
             "LD"  : 5,
             "LDI" : 5,
-            "ST"  : 4,
+            "ST"  : 5,
             "BEQ"   : 4,
             "BNE"   : 4,
             "BLT"   : 4,
@@ -29,13 +29,20 @@ class DecodeUnit:
         '''assign instruction to execution unit if possible'''
         counter = 0
         instrs = []
+        in_progess_instrs = {exe.instr for exe in cpu.execute_units}
+        # hack (warning): at the last 2 instructions (if you have 2 instruction units) you may halt early
+        print(len(cpu.execute_units))
         for execution_unit in cpu.execute_units:
             if execution_unit.AVAILABLE and counter < cpu.super_scaling:
-                execution_unit.instr = next(instr for instr in cpu.INSTR_BUFF if type(instr) == Instruction)
-                execution_unit.cycle_latency = execution_unit.instr.cycle_latency
-                counter += 1
-
-                instrs.append(execution_unit.instr)
+                # execution_unit.instr
+                for instr in cpu.INSTR_BUFF:
+                    if type(instr) == Instruction and instr not in in_progess_instrs and not instr.done:
+                        execution_unit.AVAILABLE = False
+                        execution_unit.instr = instr
+                        execution_unit.cycle_latency = execution_unit.instr.cycle_latency
+                        instrs.append(execution_unit.instr)
+                        counter += 1
+                        break
 
         if counter < cpu.super_scaling:
             print("Issuing: blocked/waiting")
@@ -71,9 +78,8 @@ class DecodeUnit:
 
         resolved_operands = np.asarray(resolved_operands) # convert to numpy array
         instruction = Instruction(type=instr, operands=resolved_operands, cycle_latency=self.latencies[instr]) # create instruction object
-
         cpu.INSTR_BUFF[index] = instruction # replace instruction with decoded instruction
-
+        print(f"Decoding: {instruction}")
 
 
 

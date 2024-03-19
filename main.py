@@ -7,8 +7,9 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("-pipelined", action="store_true")
 parser.add_argument("-debug", action="store_true")
+parser.add_argument("-step", action="store_true")
 parser.add_argument("-f", default="bubble_sort.asm")
-parser.add_argument("-n_exec", default = 1)
+parser.add_argument("-n_exec", default = 1, type=int)
 args = parser.parse_args()
 
 
@@ -28,10 +29,10 @@ print("################")
 
 fetch_unit = FetchUnit.FetchUnit(debug_lines)
 decode_unit = DecodeUnit.DecodeUnit(branch_label_map=branch_lines)
-execute_units = [ExecuteUnit.ExecuteUnit()] * args.n_exec
+execute_units = [ExecuteUnit.ExecuteUnit(ID=i) for i in range(args.n_exec)] 
 writeback_unit = WritebackUnit.WritebackUnit()
 
 cpu = Cpu(instr_cache, fetch_unit, decode_unit, execute_units, writeback_unit)
 
 
-cpu.run(debug=args.debug, pipelined=args.pipelined )
+cpu.run(debug=args.debug, step_toggle=args.step, pipelined=args.pipelined )
