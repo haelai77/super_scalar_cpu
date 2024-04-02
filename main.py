@@ -1,6 +1,7 @@
 from assembler.assembler import assembler
 from cpu_sim.Cpu import Cpu
 from pipeline import *
+
 import argparse
 
 
@@ -8,8 +9,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-pipelined", action="store_true")
 parser.add_argument("-debug", action="store_true")
 parser.add_argument("-step", action="store_true")
-parser.add_argument("-f", default="bubble_sort.asm")
-parser.add_argument("-n_exec", default = 1, type=int)
+parser.add_argument("-f", default="pipe_test.asm")
+parser.add_argument("-n_alu", default = 4, type=int)
+parser.add_argument("-n_lsu", default = 1, type=int)
 args = parser.parse_args()
 
 
@@ -27,12 +29,19 @@ for key, value in branch_lines.items():
     print(key, value)
 print("################")
 
-fetch_unit = FetchUnit.FetchUnit(debug_lines)
+fetch_unit = FetchUnit.FetchUnit()
 decode_unit = DecodeUnit.DecodeUnit(branch_label_map=branch_lines)
-execute_units = [ExecuteUnit.ExecuteUnit(ID=i) for i in range(args.n_exec)] 
-writeback_unit = WritebackUnit.WritebackUnit()
+dispatch_unit = DispatchUnit.DispatchUnit()
+issue_unit = IssueUnit.IssueUnit()
+execute_units = []
 
-cpu = Cpu(instr_cache, fetch_unit, decode_unit, execute_units, writeback_unit)
+execute_units.extend([ALU.ALU(ID=i) for i in range(args.n_alu)])
+execute_units.extend([LSU.LSU(ID=i) for i in range(args.n_lsu)])
+
+
+WriteResultUnit = WriteResultUnit.WriteResultUnit()
+
+cpu = Cpu(instr_cache, fetch_unit, decode_unit, dispatch_unit, issue_unit, execute_units, WriteResultUnit)
 
 
 cpu.run(debug=args.debug, step_toggle=args.step, pipelined=args.pipelined )

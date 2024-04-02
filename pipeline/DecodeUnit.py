@@ -25,61 +25,63 @@ class DecodeUnit:
             "B"     : 4,
             "HALT"  : 0}
 
-    def issue(self, cpu):
-        '''assign instruction to execution unit if possible'''
-        counter = 0
-        instrs = []
-        in_progess_instrs = {exe.instr for exe in cpu.execute_units}
-        # hack (warning): at the last 2 instructions (if you have 2 instruction units) you may halt early
-        print(len(cpu.execute_units))
-        for execution_unit in cpu.execute_units:
-            if execution_unit.AVAILABLE and counter < cpu.super_scaling:
-                # execution_unit.instr
-                for instr in cpu.INSTR_BUFF:
-                    if type(instr) == Instruction and instr not in in_progess_instrs and not instr.done:
-                        execution_unit.AVAILABLE = False
-                        execution_unit.instr = instr
-                        execution_unit.cycle_latency = execution_unit.instr.cycle_latency
-                        instrs.append(execution_unit.instr)
-                        counter += 1
-                        break
+        
+    def rename(self, cpu, instr_type, operands):
+        """renames logical registers operands to physical register operands"""
+        renamed_operands = []
 
-        if counter < cpu.super_scaling:
-            print("Issuing: blocked/waiting")
-        else:
-            print(f"Issuing: {instrs}")
+        for i, operand in enumerate(operands):
+            if operand[0] == "R": # if logical register used just do a look up instead else must be immediate so keep the same
+                if instr_type in { "ST", "BEQ", "BNE", "BLT", "BGT", "J", "B"} or i > 0:
+                    operand = cpu.rat.check(operand)
+                else:
+                    operand = cpu.rat.add(operand)
+            renamed_operands.append(operand)
 
-        return not counter < cpu.super_scaling
+        return renamed_operands
+
+    def resolve_branch_labels(self, operands):
+        """make operands machine readable [decode branch labels into numbers]"""
+        resolved_operands = []
+        for operand in operands:
+            if operand in self.branch_label_decode: 
+                resolved_operands.append(self.branch_label_decode[operand][0])
+            else: # handels immediate and register operands 
+                resolved_operands.append(operand)
+        return resolved_operands
 
     def decode(self, cpu):
         ''' decodes operands in to objects which contain'''
-        instr, operands, index = None, None, None
+        end_msg = False
+     
+        for _ in range(cpu.super_scaling):
+            instr_type, operands, index = None, None, None
 
-        for idx, item in enumerate(cpu.INSTR_BUFF):
-            if type(item) != Instruction:
-                instr, operands = item
-                index = idx
-        
-        if instr == None:
-            return
-
-        resolved_operands = []
-        for operand in operands: 
-            # pops off any "R"s and converts to int
-            if operand[0] in {"R", "r"} and len(operand) == 2:
-                resolved_operands.append(int(operand[1])) # e.g. R1:str -> 1: int (not decoded into value in register because need to tell writeback address)
+            # find available instructiont to decode
+            for idx, item in enumerate(cpu.INSTR_BUFF):
+                if type(item) != Instruction:
+                    instr_type, operands = item
+                    index = idx
+                    break
             
-            # for B instruction decoding labels into index in instruction cache
-            elif operand in self.branch_label_decode: 
-                resolved_operands.append(self.branch_label_decode[operand][0])
+            # ran out of instructions to decode but cycles still going so flag to print empty deocde msg at bottom
+            if not instr_type:
+                end_msg = True
+                break
+        
+            resolved_operands = self.resolve_branch_labels(operands)
+            renamed_operands = self.rename(instr_type=instr_type, operands=resolved_operands, cpu=cpu)
 
-            else:
-                resolved_operands.append(int(operand)) 
+            # create instruction
+            operands = np.asarray(renamed_operands) # convert to numpy array
+            instruction = Instruction(type=instr_type, operands=operands, cycle_latency=self.latencies[instr_type]) # create instruction object
+            cpu.INSTR_BUFF[index] = instruction # replace instruction with decoded instruction
+            print(f"Decoded: {instruction}")
 
-        resolved_operands = np.asarray(resolved_operands) # convert to numpy array
-        instruction = Instruction(type=instr, operands=resolved_operands, cycle_latency=self.latencies[instr]) # create instruction object
-        cpu.INSTR_BUFF[index] = instruction # replace instruction with decoded instruction
-        print(f"Decoding: {instruction}")
+        if end_msg:
+            print("Decoded: []")
+
+        return True
 
 
 
