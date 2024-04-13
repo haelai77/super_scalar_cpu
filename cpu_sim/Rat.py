@@ -16,6 +16,12 @@ class Rat:
     def check(self, logical_reg): # used in reservation station to swap out 
         """peeks at entry in mapping""" 
         return self.RAT.loc[logical_reg]["Phys_reg"]
+    
+    def free(self, physical_reg):
+        print("freed: ", physical_reg)
+        if physical_reg is not None:
+            self.freelist.append(physical_reg)
+
 
     def add(self, result_reg):
         """adds mapping from logical register to physical register"""
@@ -24,13 +30,13 @@ class Rat:
 
         rat_entry = self.RAT.loc[logical_reg]["Phys_reg"]
 
-        if rat_entry: # phys reg mapping is being overwritten so we add it back into the free list
-            self.freelist.append(rat_entry)
+        # # todo fix this only free on commit
+        # if rat_entry: # phys reg mapping is being overwritten so we add it back into the free list
+        #     self.freelist.append(rat_entry)
         
         self.RAT.loc[logical_reg]["Phys_reg"] = physical_reg
 
-        if self.cpu.debug:
-            print(f"        >> {logical_reg} mapped to {physical_reg} <<")
+        # print(f"        >> {logical_reg} mapped to {physical_reg} <<")
             
 
         return physical_reg

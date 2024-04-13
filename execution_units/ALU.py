@@ -1,4 +1,3 @@
-from .Instruction import Instruction
 import pandas as pd
 
 class ALU:
@@ -36,6 +35,7 @@ class ALU:
         self.instr = cpu.RS[self.RS_type].pop(cpu)
         if type(self.instr) == pd.Series:
             self.AVAILABLE = False
+            print(f"Issuing (ALU): {self.instr["INSTRs"]}")
             return True
         else:
             return False
@@ -47,7 +47,7 @@ class ALU:
             self.cycle_latency -= 1
             print(f"Executing (ALU_{self.ID}): latency {self.cycle_latency}, {self.instr["INSTRs"]}")
             return False
-        print(f"Executed (ALU_{self.ID}): {self.instr["INSTRs"].type}")
+        print(f"Executed (ALU_{self.ID}): {self.instr["INSTRs"]}")
         
         # if HALT instruction
         if self.instr["INSTRs"].type == "HALT" and not all(exec_unit.AVAILABLE for exec_unit in cpu.execute_units if exec_unit.ID != self.ID):
@@ -65,18 +65,25 @@ class ALU:
         # send result/instruction along the CDB
         cpu.CDB.append(instruction)
         self.AVAILABLE = True
-
-        # broadcast results to reservation stations 
-        if instruction.type not in {"ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "HALT"}:
-            for rs_type in ["ALU", "LSU"]: # todo include branch BRANCH
-                cpu.RS[rs_type].broadcast(result=instruction.result, rob_entry=cpu.PRF.rob_entry(instruction.operands[0]))
         
-        # broadcast result to possible awaiting stores
-        cpu.rob.broadcast(result=instruction.result, reg=instruction.operands[0]) # operand zero is dst reg
+        ##################
+        # broadcast results to reservation stations 
+        if instruction.type not in {"HALT", "ST", "BEQ", "BNE", "BLT", "BGT", "J", "B"}:
+            
+            for rs_type in ["ALU", "LSU", "BRA"]:
+                cpu.RS[rs_type].broadcast(result=instruction.result, rob_entry=cpu.PRF.rob_entry(instruction.operands[0]))
+                
+            # broadcast result to possible awaiting stores
+            cpu.rob.broadcast(result=instruction.result, reg=instruction.operands[0]) # operand zero is dst reg
+        ##################
 
         self.instr = None
         return True
 
+    def flush(self):
+        self.instr = None
+        self.cycle_latency = 0
+        self.AVAILABLE = True
 
     def ADD(self):
         '''r1 <- r2 + r3'''
@@ -129,38 +136,5 @@ class ALU:
     def HALT(self, cpu):
         '''stop!'''
         cpu.finished = True
-
-#todo######### need to move branching to branch unit
-
-    def BEQ(self, instr, cpu):
-        # in MIPS +4 to pc as to move to next 32bit/4byte instruction, then you add branch displacement 
-        # in this simulator the program counter is incremented by branch displacement then 1 is added back in the cpu object
-        '''branching if values in 2 registers are equal'''
-        if cpu.RF.read(instr.operands[0]) == cpu.RF.read(instr.operands[1]):
-            cpu.PC = (instr.operands[2])
-        
-    def BNE(self, instr, cpu):
-        '''branching if values in 2 registers are not equal'''
-        if cpu.RF.read(instr.operands[0]) != cpu.RF.read(instr.operands[1]):
-            cpu.PC = (instr.operands[2])
-    
-    def BLT(self, instr, cpu):
-        '''branch if value in first register is less than '''
-        if cpu.RF.read(instr.operands[0]) < cpu.RF.read(instr.operands[1]):
-            cpu.PC = (instr.operands[2])
-
-    def BGT(self, instr, cpu):
-        '''branch if value in first register is greater than '''
-        if cpu.RF.read(instr.operands[0]) > cpu.RF.read(instr.operands[1]):
-            cpu.PC = (instr.operands[2])
-
-    def J(self, instr, cpu):
-        ''' branch based on immediate passed in '''
-        cpu.PC += (instr.operands[0])
-
-    def B(self, instr, cpu):
-        '''direct branch to address provided'''
-        cpu.PC = instr.operands[0]
-
 
         

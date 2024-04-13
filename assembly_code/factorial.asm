@@ -5,8 +5,8 @@ START:
     LDI R1 10
 
     # counter 
-    ST R1 0 R0
-    LD R2 0 R0
+    ST R1 R0 R0
+    LD R2 R0 R0
     ADDI R2 R2 -1
 
     # end compare check
@@ -19,5 +19,5 @@ MAIN:
     B MAIN
 
 END:
-    ST R1 0 R0
+    ST R1 R0 R0
 HALT

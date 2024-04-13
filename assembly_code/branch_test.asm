@@ -1,0 +1,12 @@
+LDI R1 0
+LDI R3 4
+
+B START
+
+START:
+    ADDI R1 R1 1
+    BEQ R1 R3 END
+    B START
+
+END:
+    HALT

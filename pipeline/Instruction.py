@@ -6,10 +6,16 @@ class Instruction:
         self.operands = operands # decoded operands e.g. result register address, temp addresses etc
 
         ########## implementation attributes ##########
+        self.logical_operands = None
         self.cycle_latency = cycle_latency
         self.result = None # for CDB broadcast
-        self.effective_address = None # only set for store operations
+        self.effective_address = None # for rob write
+        self.branch_success = False
+        # self.branch_target = None
+        self.pc = None
         ###############################################
 
     def __repr__(self):
+        if self.type in {"BGE","BLT", "BNE", "BEQ"}:
+            return f"{self.type}_{self.operands}_{self.branch_success}"
         return f"{self.type}_{self.operands}"

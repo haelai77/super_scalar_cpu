@@ -7,7 +7,8 @@ class Memory:
         self.mem = pd.Series(data=[0]*size, index=[f"MEM{n}" for n in range(size)])
 
     def write(self, mem_loc, value):
-        self.mem[mem_loc] = value
+        print(mem_loc, value)
+        self.mem[mem_loc] = int(value)
 
     def read(self, mem_loc):
         return self.mem[mem_loc]

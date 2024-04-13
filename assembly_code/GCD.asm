@@ -7,6 +7,8 @@
         # branch to start 
     # else branch to end
 
+##############https://www.freecodecamp.org/news/euclidian-gcd-algorithm-greatest-common-divisor/
+
 # 1220 gcd 516 is 4
 # 48 gcd 16 is 16
 # 48 gcd 18 is 6
@@ -20,26 +22,32 @@ START:
     # B
     LDI R2 235
 
+    LDI R4 2
+    LDI R5 3
+
 MOD:
+    # a mod b = a - intdiv(a, b) * b
     DIV R3 R1 R2
     MUL R3 R2 R3
     SUB R3 R1 R3
-    BEQ R3 0 END
+
+
+    BEQ R3 R0 END
 
     # STORE B
-    ST R2 2 R0
+    ST R2 R4 R0
 
     # STORE REMAINDER
-    ST R3 3 R0
+    ST R3 R5 R0
 
     # SET A TO B
-    LD R1 2 R0
+    LD R1 R4 R0
 
     # SET B TO REMAINDER
-    LD R2 3 R0
+    LD R2 R5 R0
     B MOD
 
     
 END:
-    ST R2 0 R0
+    ST R2 R0 R0
 HALT
