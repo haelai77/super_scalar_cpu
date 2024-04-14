@@ -163,6 +163,7 @@ class Rob:
                 if self.flush_check(rob_entry=rob_entry, cpu=cpu):
                     print("returning flushed")
                     cpu.flushed = True
+                    #todo maybe boost cycles by 10 as flush punishment
                     return True
 
             elif rob_entry["instr"].type not in {"B", "J"}: # arithmetic,load,etc instructions

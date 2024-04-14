@@ -66,25 +66,18 @@ class Cpu:
         }
 
         self.debug = False
-        # stage transitions
-        # self.transition = {
-        #     self.fetch   : self.decode,
-        #     self.decode  : self.issue,
-        #     self.issue   : self.execute,
-        #     self.execute : self.writeresult
-        # }
 
         self.transition = {
-            self.fetch     : self.decode,
-            self.decode    : self.issue,
-            self.issue  : self.execute,
-            self.execute   : self.writeresult,
+            self.fetch       : self.decode,
+            self.decode      : self.issue,
+            self.issue       : self.dispatch,
+            self.dispatch    : self.execute,
+            self.execute     : self.writeresult,
             self.writeresult : self.commit
         }
 
     ### pipeline functions ###
     def flush(self):
-
         self.rat.RAT = self.rrat.copy(deep=True)
         self.rat.freelist = self.r_freelist.copy()
         self.PC = self.RSB.popleft()
@@ -103,7 +96,6 @@ class Cpu:
     def fetch(self, num_to_fetch = 1):
         '''Gets 1 instruction from memory and places it in the instruction buffer INSTR'''
         done = self.fetch_unit.fetch(cpu=self, num_to_fetch=num_to_fetch)
-
         return done
 
     def decode(self): # decodes what the instruction is
@@ -111,26 +103,24 @@ class Cpu:
         return self.decode_unit.decode(cpu=self)
 
     def issue(self):
-        '''dispatches instructions to available reservation stations and rob if possible'''
+        '''Issues instructions to available reservation stations and rob if possible'''
         return self.issue_unit.issue(cpu=self)
     
-    # def issue(self):
-    #     '''issues an instruction from reservation station to execution unit'''
-    #     self.issue_unit.issue(cpu=self)
+    def dispatch(self):
+        '''issues an instruction from reservation station to execution unit'''
+        self.dispatch_unit.dispatch(cpu=self)
+
 
     def execute(self):
         '''Executes the first instruction in the instruction buffer and removes it from the instruction buffer'''
-        
-        # issue instructions to execution units
-        self.dispatch_unit.dispatch(cpu=self)
-        
-    
         # run execution units
         for unit in self.execute_units:
             if not unit.AVAILABLE:
                 unit.execute(cpu=self)
 
-        
+        for unit in self.execute_units:
+            if unit.AVAILABLE:
+                return True
         return True
 
     def writeresult(self):
@@ -140,7 +130,7 @@ class Cpu:
     def commit(self):
         if self.rob.commit(cpu=self):
             self.instructions += 1
-        
+        return True
 
     ##########################
     def print_circular_buffer(self):
@@ -156,10 +146,12 @@ class Cpu:
         '''runs the cpu simulation'''
         self.debug = debug
         self.pipelined = pipelined
+
         pipe_format = {
             self.fetch: "fetch",
             self.decode: "decode",
             self.issue: "Issue",
+            self.dispatch: "Dispatch",
             self.execute: "execute",
             self.writeresult: "writeresult",
             self.commit: "commit"
@@ -168,7 +160,7 @@ class Cpu:
         print(f"debug : {self.debug}")
 
         while (not self.finished):
-            print(f" >>> pipelined : {[pipe_format[stage] for stage in self.pipe]} <<< ")
+            print(f" >>> pipelined : {[pipe_format[stage] for stage in self.pipe][::-1]} <<< ")
             # if self.debug: print(f"Instruction_buffer: {self.INSTR_BUFF}")
             if self.pipelined:
                 for _ in range(len(self.pipe)): # iterate through all stages in the pipe
@@ -206,6 +198,7 @@ class Cpu:
             
             else: # scalar 
                 stage = self.pipe.popleft()
+
                 if not stage():
                     self.pipe.append(stage)
                 elif stage != self.commit:
