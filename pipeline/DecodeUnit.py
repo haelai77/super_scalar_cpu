@@ -41,52 +41,62 @@ class DecodeUnit:
 
         return renamed_operands
 
-    # def branch_prediction(self, cpu, curr_instr):
-    #             # if branch instruction check BTB
-    #     if curr_instr[0] in {"BEQ", "BNE", "BGT", "BLT"}:
-            
-    #         if cpu.dynamic:
-    #             to_take = cpu.BTB.take(cpu.PC)
+    def static_prediction(self, style, target, cpu):
+        match style:
+            case "FIXED_always":
+                return 1
+            case "FIXED_never":
+                return 0
+            case "STATIC":
+                return target < cpu.PC
+        return False
+
+    def branch_prediction(self, cpu, curr_instr):
+                # if branch instruction check BTB
+        if curr_instr[0] in {"BEQ", "BNE", "BGT", "BLT"}:
+            instr_pc = curr_instr[2]
+
+            if cpu.dynamic:
+                to_take = cpu.BTB.take(instr_pc)
                 
-    #             # static prediction
-    #             if to_take == "not_in_BTB":
-    #                 taken_state = self.static_prediction(style=cpu.static_BRA_style, target=int(curr_instr[1][2]), cpu=cpu)
-    #                 cpu.BTB.add(pc=cpu.PC, target= int(curr_instr[1][2]), taken_state=taken_state)
+                # static prediction
+                if to_take == "not_in_BTB":
+                    taken_state = self.static_prediction(style=cpu.static_BRA_style, target=int(curr_instr[1][2]), cpu=cpu)
+                    cpu.BTB.add(pc=instr_pc, target=int(curr_instr[1][2]), taken_state=taken_state)
 
-    #                 if taken_state:
-    #                     cpu.RSB.append(cpu.PC + 1) # buffer rollback to not taken state
-    #                     cpu.PC = int(curr_instr[1][2]) # 2nd operand i.e. target
-    #                 else:
-    #                     cpu.RSB.append(int(curr_instr[1][2]) + 1) # roll back to taken state
+                    if taken_state:
+                        cpu.RSB.append(instr_pc + 1) # buffer rollback to not taken state
+                        cpu.PC = int(curr_instr[1][2]) # 2nd operand i.e. target
+                    else:
+                        cpu.RSB.append(int(curr_instr[1][2]) + 1) # roll back to taken state
 
-    #             # dynamic prediction
-    #             elif to_take >= 0:
-    #                 cpu.RSB.append(cpu.PC+1) # buffer rollback to not taken state
-    #                 cpu.PC = int(to_take)
-    #             else:
-    #                 cpu.RSB.append(int(curr_instr[1][2])+1)
+                # dynamic prediction
+                elif to_take >= 0:
+                    cpu.RSB.append(instr_pc+1) # buffer rollback to not taken state
+                    cpu.PC = int(to_take)
+                else:
+                    cpu.RSB.append(int(curr_instr[1][2])+1)
 
-    #         # static prediction
-    #         else:
-    #             taken_state = self.static_prediction(style=cpu.static_BRA_style, target=int(curr_instr[1][2]), cpu=cpu)
-    #             # if taken, buffer rollback to not taken path
-    #             if taken_state:
-    #                 cpu.RSB.append(cpu.PC+1)
-    #                 cpu.PC = int(curr_instr[1][2]) # 3rd operand i.e. target
-    #             else:
-    #                 print("buffering not taken ",int(curr_instr[1][2]), cpu.PC+1)
-    #                 cpu.RSB.append(int(curr_instr[1][2])+1)
+            # static prediction
+            else:
+                taken_state = self.static_prediction(style=cpu.static_BRA_style, target=int(curr_instr[1][2]), cpu=cpu)
+                # if taken, buffer rollback to not taken path
+                if taken_state:
+                    cpu.RSB.append(instr_pc+1)
+                    cpu.PC = int(curr_instr[1][2]) # 3rd operand i.e. target
+                else:
+                    print("buffering not taken ",int(curr_instr[1][2]), instr_pc+1)
+                    cpu.RSB.append(int(curr_instr[1][2])+1)
 
-    #     elif curr_instr[0] == "J":
-    #         cpu.PC += int(curr_instr[1][0])
-    #     elif curr_instr[0] == "B":
-    #         cpu.PC = int(curr_instr[1][0])
+        elif curr_instr[0] == "J":
+            cpu.PC += int(curr_instr[1][0])
+        elif curr_instr[0] == "B":
+            cpu.PC = int(curr_instr[1][0])
 
     def decode(self, cpu):
         ''' decodes operands in to objects which contain'''
-        end_msg = False
 
-        for _ in range(cpu.super_scaling):
+        for _ in range(len(cpu.INSTR_BUFF)):
             instr_type, operands, index, pc = None, None, None, None
 
             # find available instructiont to decode
@@ -97,15 +107,16 @@ class DecodeUnit:
                     break
             
             # ran out of instructions to decode but cycles still going so flag to print empty deocde msg at bottom
-            if not instr_type:
-                end_msg = True
+            if instr_type is None:
                 break
+            
+            self.branch_prediction(cpu=cpu, curr_instr=(instr_type, operands, pc)) #NOTE: does branch prediction
 
             renamed_operands = self.rename(instr_type=instr_type, operands=operands, cpu=cpu)
 
             if renamed_operands is False:
                 print(" >>>No free physical registers stalling<<<")
-                return
+                return False
 
             # create instruction
             renamed_operands = np.asarray(renamed_operands) # convert to numpy array
@@ -115,9 +126,7 @@ class DecodeUnit:
             cpu.INSTR_BUFF[index] = instruction # replace instruction with decoded instruction
             print(f"Decoded: {instruction}")
 
-        if end_msg:
-            print("Decoded: []")
-
+            cpu.PC += 1
         return True
 
 

@@ -20,7 +20,6 @@ class LSU:
         self.instr = cpu.RS[self.RS_type].pop(cpu)
         if type(self.instr) == pd.Series:
             self.AVAILABLE = False
-            print(f"Issuing (LSU): {self.instr["INSTRs"]}")
             return True
         else:
             return False
@@ -33,6 +32,7 @@ class LSU:
             self.cycle_latency -= 1
             print(f"Executing (lsu_{self.ID}): latency {self.cycle_latency}, {self.instr["INSTRs"]}")
             return False
+        
         print(f"Executed (lsu_{self.ID}): {self.instr["INSTRs"]}")
         
         # execute instruction

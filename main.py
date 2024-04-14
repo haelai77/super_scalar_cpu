@@ -17,7 +17,10 @@ parser.add_argument("-n_lsu", default = 1, type=int)
 parser.add_argument("-n_bra", default = 1, type=int)
 parser.add_argument("-dynamic", action="store_true")
 parser.add_argument("-static_style", default="FIXED_always", type=str) # FIXED_never, STATIC (always take backwards branches never take forwards branches)
-parser.add_argument("-dyna_style", default="DYNAMIC_1bit", type=str) # DYNAMIC_2bit
+parser.add_argument("-dyna_style", default="DYNAMIC_2bit", type=str) # DYNAMIC_2bit
+
+parser.add_argument("-bra_pred", action="store_true")
+parser.add_argument("-ooo", action="store_true")
 args = parser.parse_args()
 
 

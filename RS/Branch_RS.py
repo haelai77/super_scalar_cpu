@@ -36,6 +36,5 @@ class Branch_RS(ReservationStation):
                 return self.__pop_row(i)
             elif (row["tag1"] is None and row["tag2"] is None and row["val1"] is None and row["val2"] is None and row["immediate"] is not None): #uncond jump
                 return self.__pop_row(i)
-            else:
-                print(">>>>>>>>>>>>>>>>>>>>> [branch rs couldn't pop] <<<<<<<<<<<<<<<<<<<<<<<<<<<")
+
         return False

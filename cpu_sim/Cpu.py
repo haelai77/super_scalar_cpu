@@ -16,8 +16,11 @@ import copy
 
 class Cpu:
     def __init__(self, instr_cache, fetch_unit, decode_unit, dispatch_unit, issue_unit, execute_units, writeresult_unit,
-                 dynamic=False, stat_style="FIXED_always", dyna_style="DYNAMIC_1bit", super_scaling=1):
+                 dynamic=False, stat_style="FIXED_always", dyna_style="DYNAMIC_1bit", super_scaling=1, ooo=True, bra_pred=True):
         self.pipelined = False
+        self.ooo = ooo
+        self.bra_pred = bra_pred
+        self.branch_wait = False
 
         self.flushed = False
         self.finished: int = 0
@@ -57,7 +60,7 @@ class Cpu:
         self.static_BRA_style = stat_style
         self.dyna_BRA_style = dyna_style
         self.dynamic = dynamic
-        self.BTB = BTB(self, size=256)
+        self.BTB = BTB(self, size=64)
 
         self.RS = {
             "ALU" : ReservationStation(),
@@ -108,20 +111,22 @@ class Cpu:
     
     def dispatch(self):
         '''issues an instruction from reservation station to execution unit'''
-        self.dispatch_unit.dispatch(cpu=self)
-
+        return self.dispatch_unit.dispatch(cpu=self)
 
     def execute(self):
         '''Executes the first instruction in the instruction buffer and removes it from the instruction buffer'''
         # run execution units
+        ret = True
+
         for unit in self.execute_units:
             if not unit.AVAILABLE:
                 unit.execute(cpu=self)
 
         for unit in self.execute_units:
-            if unit.AVAILABLE:
-                return True
-        return True
+            if not unit.AVAILABLE:
+                ret = False
+    
+        return ret
 
     def writeresult(self):
         self.writeresult_unit.writeresult(cpu=self)
@@ -161,7 +166,7 @@ class Cpu:
 
         while (not self.finished):
             print(f" >>> pipelined : {[pipe_format[stage] for stage in self.pipe][::-1]} <<< ")
-            # if self.debug: print(f"Instruction_buffer: {self.INSTR_BUFF}")
+
             if self.pipelined:
                 for _ in range(len(self.pipe)): # iterate through all stages in the pipe
                     stage = self.pipe.popleft()
@@ -194,7 +199,6 @@ class Cpu:
                     self.print_circular_buffer()
                     print("## mem")
                     print(*self.MEM.mem, sep=" ")
-                print(f"################################# clock: {self.clk_cycles}")
             
             else: # scalar 
                 stage = self.pipe.popleft()
@@ -207,14 +211,18 @@ class Cpu:
                     self.pipe.append(self.fetch)
 
                 self.clk_cycles += 1
+
+            ### step mode ###
             
             if step_toggle == -1:
                 pass
+
             elif self.clk_cycles >= step_toggle:
                 new_step = input("take step:")
                 if new_step:
                     step_toggle = int(new_step)
 
+            print(f"################################# clock: {self.clk_cycles}")
 
         print("FIN")
         print("##################### RREGS #####################")
@@ -227,5 +235,5 @@ class Cpu:
 
         print("Cycles:", self.clk_cycles)
         print("Instrs:", self.instructions)
-        print("IPC:", self.clk_cycles/self.instructions)
+        print("IPC:", round(self.instructions/self.clk_cycles, 2))
 

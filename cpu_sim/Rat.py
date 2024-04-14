@@ -18,7 +18,6 @@ class Rat:
         return self.RAT.loc[logical_reg]["Phys_reg"]
     
     def free(self, physical_reg):
-        print("freed: ", physical_reg)
         if physical_reg is not None:
             self.freelist.append(physical_reg)
 

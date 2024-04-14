@@ -20,7 +20,6 @@ class BRANCH:
         self.instr = cpu.RS[self.RS_type].pop(cpu)
         if type(self.instr) == pd.Series:
             self.AVAILABLE = False
-            print(f"Issuing (BRA): {self.instr["INSTRs"]}")
             return True
         else:
             return False

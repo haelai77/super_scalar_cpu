@@ -35,7 +35,6 @@ class ALU:
         self.instr = cpu.RS[self.RS_type].pop(cpu)
         if type(self.instr) == pd.Series:
             self.AVAILABLE = False
-            print(f"Issuing (ALU): {self.instr["INSTRs"]}")
             return True
         else:
             return False
@@ -47,6 +46,7 @@ class ALU:
             self.cycle_latency -= 1
             print(f"Executing (ALU_{self.ID}): latency {self.cycle_latency}, {self.instr["INSTRs"]}")
             return False
+        
         print(f"Executed (ALU_{self.ID}): {self.instr["INSTRs"]}")
         
         # if HALT instruction
