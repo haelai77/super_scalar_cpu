@@ -65,16 +65,20 @@ class DecodeUnit:
                     cpu.BTB.add(pc=instr_pc, target=int(curr_instr[1][2]), taken_state=taken_state)
 
                     if taken_state:
+                        print("  >>x predict taken <<")
                         cpu.RSB.append(instr_pc + 1) # buffer rollback to not taken state
                         cpu.PC = int(curr_instr[1][2]) # 2nd operand i.e. target
                     else:
+                        print("  >>x predict not taken <<")
                         cpu.RSB.append(int(curr_instr[1][2]) + 1) # roll back to taken state
 
                 # dynamic prediction
                 elif to_take >= 0:
-                    cpu.RSB.append(instr_pc+1) # buffer rollback to not taken state
+                    print("  >> predict taken <<")
+                    cpu.RSB.append(instr_pc + 1) # buffer rollback to not taken state
                     cpu.PC = int(to_take)
                 else:
+                    print("  >> predict not taken <<")
                     cpu.RSB.append(int(curr_instr[1][2])+1)
 
             # static prediction
@@ -88,15 +92,14 @@ class DecodeUnit:
                     print("buffering not taken ",int(curr_instr[1][2]), instr_pc+1)
                     cpu.RSB.append(int(curr_instr[1][2])+1)
 
-        elif curr_instr[0] == "J":
-            cpu.PC += int(curr_instr[1][0])
-        elif curr_instr[0] == "B":
-            cpu.PC = int(curr_instr[1][0])
 
     def decode(self, cpu):
         ''' decodes operands in to objects which contain'''
+        if len(cpu.IQ) == cpu.IQ.maxlen:
+                print("Decode: [] >> IQ full")
+                return False
 
-        for _ in range(len(cpu.INSTR_BUFF)):
+        for _ in range(cpu.super_scaling):
             instr_type, operands, index, pc = None, None, None, None
 
             # find available instructiont to decode
@@ -108,9 +111,15 @@ class DecodeUnit:
             
             # ran out of instructions to decode but cycles still going so flag to print empty deocde msg at bottom
             if instr_type is None:
+                print(f"Decoded: []")
                 break
             
-            self.branch_prediction(cpu=cpu, curr_instr=(instr_type, operands, pc)) #NOTE: does branch prediction
+            if cpu.bra_pred and instr_type in {"BEQ", "BNE", "BLT", "BGT"}:
+                self.branch_prediction(cpu=cpu, curr_instr=(instr_type, operands, pc)) #NOTE: does branch prediction
+            elif instr_type == "J":
+                cpu.PC += int(operands[0])
+            elif instr_type == "B":
+                cpu.PC = int(operands[0])
 
             renamed_operands = self.rename(instr_type=instr_type, operands=operands, cpu=cpu)
 
@@ -123,10 +132,17 @@ class DecodeUnit:
             instruction = Instruction(type=instr_type, operands=renamed_operands, cycle_latency=self.latencies[instr_type]) # create instruction object
             instruction.pc = pc
             instruction.logical_operands = operands
-            cpu.INSTR_BUFF[index] = instruction # replace instruction with decoded instruction
+
+            cpu.INSTR_BUFF.popleft()
+            cpu.IQ.append(instruction) # replace instruction with decoded instruction
+            
             print(f"Decoded: {instruction}")
 
             cpu.PC += 1
+
+            break # 1 decode per decode call
+
+
         return True
 
 

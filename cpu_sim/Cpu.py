@@ -48,7 +48,8 @@ class Cpu:
         self.MEM: Memory = Memory()
         self.PRF: Register_File = Register_File(num_regs = 64) # architectural register file
         self.INSTR_CACHE = instr_cache # from assembler
-        self.INSTR_BUFF = deque(maxlen = 64) # instruction queue for speculative fetch and decode
+        self.INSTR_BUFF = deque(maxlen = super_scaling) # instruction queue for speculative fetch and decode / stage between fetch and decode
+        self.IQ         = deque(maxlen = 64) # instruction queue / stage between decode and issue
         
         #addons
         self.rob = Rob(size=64) # 128 entries
@@ -87,7 +88,9 @@ class Cpu:
         self.RSB = deque()
         self.pipe = deque()
         self.fetch_unit.HALT = False
-        self.INSTR_BUFF = deque(maxlen = 8)
+        self.INSTR_BUFF = deque(maxlen = self.super_scaling)
+        self.IQ         = deque(maxlen = 64) # instruction queue / stage between decode and issue
+
         self.CDB = deque()
 
         for unit in self.execute_units:
@@ -183,6 +186,11 @@ class Cpu:
                 self.pipe.extend([self.fetch])
                 self.clk_cycles += 1
 
+                # print("## rob")
+                # self.print_circular_buffer()
+                # print("## prf")
+                # print(self.PRF.rf.loc[self.rrat.loc[self.rrat["Phys_reg"].apply(lambda reg: reg is not None), "Phys_reg"]])
+
                 if self.debug:
                     print("## rsb")
                     print(self.RSB)
@@ -195,7 +203,6 @@ class Cpu:
                     print("## prf")
                     print(self.PRF.rf.loc[self.rrat.loc[self.rrat["Phys_reg"].apply(lambda reg: reg is not None), "Phys_reg"]])
                     print("## rob")
-                    print(f"comp:{self.rob.commit_pointer}, disp:{self.rob.dispatch_pointer}")
                     self.print_circular_buffer()
                     print("## mem")
                     print(*self.MEM.mem, sep=" ")

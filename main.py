@@ -53,7 +53,8 @@ execute_units.extend([ALU.ALU(ID=i) for i in range(args.n_alu)])
 WriteResultUnit = WriteResultUnit.WriteResultUnit()
 
 cpu = Cpu(instr_cache, fetch_unit, decode_unit, dispatch_unit, issue_unit, execute_units, WriteResultUnit,
-          super_scaling=args.super_scaling, stat_style=args.static_style, dyna_style=args.dyna_style, dynamic=args.dynamic)
+          super_scaling=args.super_scaling, stat_style=args.static_style, dyna_style=args.dyna_style, dynamic=args.dynamic,
+          bra_pred=args.bra_pred)
 
 
 cpu.run(debug=args.debug, step_toggle=args.step, pipelined=args.pipelined )

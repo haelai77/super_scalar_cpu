@@ -4,9 +4,13 @@ class IssueUnit:
         pass
     
     def issue(self, cpu):
-        if len(cpu.INSTR_BUFF):
+
+        if len(cpu.IQ):
             for _ in range(cpu.super_scaling):
-                instr = cpu.INSTR_BUFF[0]
+                if len(cpu.IQ) == 0:
+                    break
+                
+                instr = cpu.IQ[0]
                 RS_type = "ALU" 
 
                 if instr.type in {"ST", "LD", "LDI"}: # Reservation station type is LSU
@@ -17,7 +21,7 @@ class IssueUnit:
                 
                 # check for structural hazards
                 if cpu.rob.available() and cpu.RS[RS_type].available(): 
-                    instr = cpu.INSTR_BUFF.popleft()
+                    instr = cpu.IQ.popleft()
                     
                     # allocation instruction into rob
                     rob_entry = cpu.rob.add(instr)

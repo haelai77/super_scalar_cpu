@@ -17,42 +17,47 @@ class FetchUnit:
 
     def fetch(self, cpu, num_to_fetch = 1):
         '''fetches instruction(s) from instruction cache and places them into the instruction buffer'''
-        if cpu.branch_wait:
-            print("Fetching: [] >> waiting for branch")
-            return False
-        
-        elif cpu.PC >= len(cpu.INSTR_CACHE):
-            print("Fetching: [] >> PC beyond cache")
-            return True
-        elif len(cpu.INSTR_BUFF) == cpu.INSTR_BUFF.maxlen:
-            print("Fetching: [] >> IQ full")
-            return False
 
+        for _ in range(cpu.super_scaling):
+            #######################
+            if cpu.branch_wait:
+                print("Fetching: [] >> waiting for branch")
+                return False
+            
+            elif cpu.PC >= len(cpu.INSTR_CACHE):
+                print("Fetching: [] >> No more")
+                return True
+            
+            elif len(cpu.INSTR_BUFF) == cpu.INSTR_BUFF.maxlen:
+                print("Fetching: [] >> BUFF full")
+                return False
+            #######################
 
-        # take instruction from instruction cache
-        curr_instr = cpu.INSTR_CACHE[cpu.PC]
+            # take instruction from instruction cache
+            curr_instr = cpu.INSTR_CACHE[cpu.PC]
 
-        # HALT if encoutered HALT instruction
-        if self.HALT:
-            print("Fetching: HALTED")
-            return True
-        # if HALT found set halt flag for next iteration
-        if curr_instr[0] == "HALT":
-            self.HALT = True
+            #######################
+            # HALT if encoutered HALT instruction
+            if self.HALT:
+                print("Fetching: HALTED")
+                return True
+            # if HALT found set halt flag for next iteration
+            if curr_instr[0] == "HALT":
+                self.HALT = True
+            #######################
 
-        # if not branch prediction wait till branch is done
-        if not cpu.bra_pred and self.instr[0] in {"BEQ", "BNE", "BGT", "BLT"}:
-            cpu.branch_wait = True
+            # if not branch prediction wait till branch is done
+            if not cpu.bra_pred and curr_instr[0] in {"BEQ", "BNE", "BGT", "BLT"}:
+                cpu.branch_wait = True
 
-        # resolve branch labels
-        curr_instr = self.predecode(curr_instr, cpu.PC)
+            # resolve branch labels
+            curr_instr = self.predecode(curr_instr, cpu.PC)
 
-        # put instruction into the instruction buffer
-        cpu.INSTR_BUFF.append(curr_instr)
+            # put instruction into the instruction buffer
+            cpu.INSTR_BUFF.append(curr_instr)
 
-        print(f"Fetched: {curr_instr}")
+            print(f"Fetched: {curr_instr}")
 
-        # cpu.PC += 1
         return True
 
 

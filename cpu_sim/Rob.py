@@ -149,46 +149,51 @@ class Rob:
 
     def commit(self, cpu):
         """writes rob-entry instruction into registers and sets rob entry to none/empty """
-        # if instr exists and is done
+        ret = False
 
-        if self.ROB.iloc[self.commit_pointer]["instr"] and self.ROB.iloc[self.commit_pointer]["done"]:
-            rob_entry = self.ROB.iloc[self.commit_pointer]
-            print(f"Committed: {rob_entry["instr"]} dst:{rob_entry["dst"]} result:{rob_entry["result"]}")            
-            # if store write to memory else write to register
-            if rob_entry["instr"].type == "ST":
-                cpu.MEM.write(rob_entry["dst"], rob_entry["result"])
+        for _ in range(cpu.super_scaling):
+            if self.ROB.iloc[self.commit_pointer]["instr"] and self.ROB.iloc[self.commit_pointer]["done"]:
+                rob_entry = self.ROB.iloc[self.commit_pointer]
+                print(f"Committed: {rob_entry["instr"]} dst:{rob_entry["dst"]} result:{rob_entry["result"]}")            
+                # if store write to memory else write to register
+                if rob_entry["instr"].type == "ST":
+                    cpu.MEM.write(rob_entry["dst"], rob_entry["result"])
 
-            elif rob_entry["instr"].type in {"BEQ", "BNE", "BLT", "BGT"}:
-                # if speculation is correct continue else flush
-                if self.flush_check(rob_entry=rob_entry, cpu=cpu):
-                    print("returning flushed")
-                    cpu.flushed = True
-                    #todo maybe boost cycles by 10 as flush punishment
-                    return True
+                elif rob_entry["instr"].type in {"BEQ", "BNE", "BLT", "BGT"}:
+                    # if speculation is correct continue else flush
+                    if cpu.bra_pred and self.flush_check(rob_entry=rob_entry, cpu=cpu):
+                        print("returning flushed")
+                        cpu.flushed = True
+                        #todo maybe boost cycles by 10 as flush punishment
+                        return True
 
-            elif rob_entry["instr"].type not in {"B", "J"}: # arithmetic,load,etc instructions
-                cpu.PRF.set_reg_val(reg=rob_entry["dst"], value=rob_entry["result"])
-                
-                cpu.r_freelist.remove(rob_entry["dst"]) # remove incoming physical register mapping from retirement freelist
+                elif rob_entry["instr"].type not in {"B", "J"}: # arithmetic,load,etc instructions
+                    cpu.PRF.set_reg_val(reg=rob_entry["dst"], value=rob_entry["result"])
+                    
+                    cpu.r_freelist.remove(rob_entry["dst"]) # remove incoming physical register mapping from retirement freelist
 
-                if cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"] is not None:
-                    cpu.r_freelist.append(cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"]) # add old physical register mapping to retirement freelist
+                    if cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"] is not None:
+                        cpu.r_freelist.append(cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"]) # add old physical register mapping to retirement freelist
 
-                cpu.rat.free(cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"]) # free physical register used by instruction that just committed i.e. look in rrat for logical register and free corresponding physical register
-                cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"] = rob_entry["dst"] # update rrat
-      
-            # clear rob entry
-            self.ROB.iloc[self.commit_pointer] = {  "instr"    : None,
-                                                    "dst"      : None,
-                                                    "result"   : None,
-                                                    "done"     : None,  }
+                    cpu.rat.free(cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"]) # free physical register used by instruction that just committed i.e. look in rrat for logical register and free corresponding physical register
+                    cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"] = rob_entry["dst"] # update rrat
+        
+                # clear rob entry
+                self.ROB.iloc[self.commit_pointer] = {  "instr"    : None,
+                                                        "dst"      : None,
+                                                        "result"   : None,
+                                                        "done"     : None,  }
 
-            self.commit_pointer = (self.commit_pointer + 1) % self.size
-            self.ROB = self.ROB.replace({np.nan:None})
+                self.commit_pointer = (self.commit_pointer + 1) % self.size
+                self.ROB = self.ROB.replace({np.nan:None})
 
-            return True
+                ret = True
+        
+        if ret:
+            return ret
+
         print(f"Can't Commit : {self.ROB.iloc[self.commit_pointer]["instr"]}")
-        return False
+        return ret
         
             
 

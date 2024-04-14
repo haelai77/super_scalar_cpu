@@ -35,8 +35,6 @@ class BRANCH:
         instruction = self.exe[instr_type](self.instr)
         print(f"Executed (BRA_{self.ID}): {self.instr["INSTRs"]}")
 
-        state_change = 1 if instruction.branch_success else -1
-        
         cpu.CDB.append(instruction)
         self.AVAILABLE = True
         self.instr = None
@@ -51,7 +49,6 @@ class BRANCH:
         # in MIPS +4 to pc as to move to next 32bit/4byte instruction, then you add branch displacement 
         # in this simulator the program counter is incremented by branch displacement then 1 is added back in the cpu object
         '''branching if values in 2 registers are equal'''
-        print(instr["val1"] == instr["val2"])
         if instr["val1"] == instr["val2"]:
             instr["INSTRs"].branch_success = True
         return instr["INSTRs"]
