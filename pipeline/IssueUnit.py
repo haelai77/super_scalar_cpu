@@ -2,7 +2,34 @@
 class IssueUnit:
     def __init__(self) -> None:
         pass
-    
+
+    def attempt_bypass(self, cpu, instr, rs_type): # note no bypass for lsu yet
+        # if rob available and execution unit of correct type is available
+        if cpu.rob.available() and all(unit.AVAILABLE for unit in cpu.execute_units if unit.RS_type == rs_type):
+            bypassed = False
+            # attempt bypass
+            if rs_type in {"ALU", "BRA"}:
+                bypassed = cpu.RS[rs_type].add(instr, cpu, bypass_on=cpu.rs_bypass, eu_type=rs_type)
+            else:
+                return False
+
+            if bypassed:
+                # remove instruction from instruction queue if managed to bypass successfully
+                cpu.IQ.popleft()
+
+                #add entry to rob
+                rob_entry = cpu.rob.add(instr)
+
+                # if you are writing to a regsiter you need to set ready bit in PRF/scordboard to false
+                if instr.type not in {"ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "HALT"}: 
+                    cpu.PRF.set_unready(reg=instr.operands[0])
+
+                    # set corresponding rob entry that will write to physical register
+                    cpu.PRF.set_rob_entry(reg=instr.operands[0], rob_entry=rob_entry)
+                print("Issued (BYPASS): ", instr)
+                return True
+        return False
+
     def issue(self, cpu):
 
         if len(cpu.IQ):
@@ -18,7 +45,13 @@ class IssueUnit:
 
                 elif instr.type in {"BEQ", "BNE", "BLT", "BGT", "J", "B"}:
                     RS_type = "BRA"
-                
+
+                #NOTE: if rs bypass on and eu free then dispatch straight away without putting stuff into rs
+                if cpu.rs_bypass:
+                    if self.attempt_bypass(cpu=cpu, instr=instr, rs_type=RS_type):
+                        return True
+
+                #fixme doesn't bypass if rob and rs full but should be able to if execution unit 
                 # check for structural hazards
                 if cpu.rob.available() and cpu.RS[RS_type].available(): 
                     instr = cpu.IQ.popleft()
@@ -33,10 +66,7 @@ class IssueUnit:
                         # set corresponding rob entry that will write to physical register
                         cpu.PRF.set_rob_entry(reg=instr.operands[0], rob_entry=rob_entry)
                     
-
-                    # add instruction to reservation station of correct type
-                    cpu.RS[RS_type].add(instr, cpu)
-            
+                    cpu.RS[RS_type].add(instr, cpu, bypass_on=False)
                     
                     print(f"Issued: {instr} to RS_{RS_type}")
                 else:

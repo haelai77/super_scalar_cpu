@@ -20,7 +20,7 @@ class ReservationStation:
         else:
             return False
         
-    def add(self, instr, cpu):
+    def add(self, instr, cpu, bypass_on=False, eu_type=None):
         "adds entry into reservation station"
 
         for _ in range(cpu.super_scaling):
@@ -55,7 +55,37 @@ class ReservationStation:
                     # must be an immediate i.e. for ADDI, B or J
                     else:
                         immediate = operand
-    
+
+                ######################### BYPASS 
+                bypassed = False
+                if bypass_on:
+                    row = pd.Series({
+                                    "INSTRs"    : instr,
+                                    "tag1"      : tags[0],
+                                    "tag2"      : tags[1],
+                                    "val1"      : vals[0],
+                                    "val2"      : vals[1],
+                                    "immediate" : immediate})
+                    
+                    # NOTE: bypass doesn't really work for in-order execution
+                    if ((row["val1"] is not None) and (row["immediate"] is not None) and (row["val2"] is None) and self.non_ooo_check(row, cpu) or #ADDI (1 operand 1 immediate)
+                        (row["val1"] is not None) and (row["val2"] is not None) and self.non_ooo_check(row, cpu) or # instructions with 2 operands
+                        row["INSTRs"].type == "HALT" and len(self.stations) == 1 and cpu.rob.ROB.iloc[cpu.rob.commit_pointer]["instr"].type == "HALT" and self.non_ooo_check(row, cpu)): # HALT
+                        for execution_unit in cpu.execute_units:
+                            # if execution unit is correct type and available
+                            if execution_unit.AVAILABLE and execution_unit.RS_type == eu_type:
+                                execution_unit.instr = row
+                                execution_unit.AVAILABLE = False
+                                execution_unit.cycle_latency = execution_unit.instr["INSTRs"].cycle_latency
+                                print(f"issue-bypass: {instr}")
+                                bypassed = True
+                                cpu.bypass_counter += 1
+                                break
+                        return bypassed
+                    else:
+                        return False
+                #########################
+
                 self.stations = pd.concat([self.stations, pd.DataFrame([{
                                                                         "INSTRs"    : instr,
                                                                         "tag1"      : tags[0],
@@ -63,6 +93,7 @@ class ReservationStation:
                                                                         "val1"      : vals[0],
                                                                         "val2"      : vals[1],
                                                                         "immediate" : immediate}], dtype=object)], ignore_index=True)
+                
             else:
                 print(" >> reservation station full <<")
                 return False
@@ -89,14 +120,30 @@ class ReservationStation:
         self.stations = self.stations.T
         self.stations = self.stations.reset_index(drop=True)
         return entry
+    
+    def non_ooo_check(self, row, cpu):
+        if not cpu.ooo:
+            if row["INSTRs"].pc == cpu.next[0]:
+                cpu.next.popleft()
+                return True
+            else:
+                return False
+        else:
+            return True
 
     def pop(self, cpu):
+
         for i in range(len(self.stations)):
             row = self.stations.iloc[i]
-            if (row["val1"] is not None) and (row["immediate"] is not None) and (row["val2"] is None): #ADDI (1 operand 1 immediate)
+
+            if (row["val1"] is not None) and (row["immediate"] is not None) and (row["val2"] is None) and self.non_ooo_check(row, cpu): #ADDI (1 operand 1 immediate)
                 return self.__pop_row(i)
-            elif (row["val1"] is not None) and (row["val2"] is not None): # instructions with 2 operands
+            elif (row["val1"] is not None) and (row["val2"] is not None) and self.non_ooo_check(row, cpu): # instructions with 2 operands
                 return self.__pop_row(i)
-            elif  self.stations.iloc[i]["INSTRs"].type == "HALT" and len(self.stations) == 1 and cpu.rob.ROB.iloc[cpu.rob.commit_pointer]["instr"].type == "HALT":
+            elif  self.stations.iloc[i]["INSTRs"].type == "HALT" and len(self.stations) == 1 and cpu.rob.ROB.iloc[cpu.rob.commit_pointer]["instr"].type == "HALT" and self.non_ooo_check(row, cpu): # HALT
                 return self.__pop_row(i)
+            
+            if not cpu.ooo: # breaks on first loop if not ooo
+                return False
+
         return False

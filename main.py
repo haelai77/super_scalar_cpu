@@ -21,6 +21,7 @@ parser.add_argument("-dyna_style", default="DYNAMIC_2bit", type=str) # DYNAMIC_2
 
 parser.add_argument("-bra_pred", action="store_true")
 parser.add_argument("-ooo", action="store_true")
+parser.add_argument("-rs_bypass", action="store_true")
 args = parser.parse_args()
 
 
@@ -54,7 +55,7 @@ WriteResultUnit = WriteResultUnit.WriteResultUnit()
 
 cpu = Cpu(instr_cache, fetch_unit, decode_unit, dispatch_unit, issue_unit, execute_units, WriteResultUnit,
           super_scaling=args.super_scaling, stat_style=args.static_style, dyna_style=args.dyna_style, dynamic=args.dynamic,
-          bra_pred=args.bra_pred)
+          bra_pred=args.bra_pred, ooo=args.ooo, rs_bypass=args.rs_bypass)
 
 
 cpu.run(debug=args.debug, step_toggle=args.step, pipelined=args.pipelined )

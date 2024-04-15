@@ -93,56 +93,59 @@ class DecodeUnit:
                     cpu.RSB.append(int(curr_instr[1][2])+1)
 
 
+    
     def decode(self, cpu):
         ''' decodes operands in to objects which contain'''
         if len(cpu.IQ) == cpu.IQ.maxlen:
                 print("Decode: [] >> IQ full")
                 return False
 
-        for _ in range(cpu.super_scaling):
-            instr_type, operands, index, pc = None, None, None, None
+        # for _ in range(cpu.super_scaling):
 
-            # find available instructiont to decode
-            for idx, instr in enumerate(cpu.INSTR_BUFF):
-                if type(instr) != Instruction: 
-                    instr_type, operands, pc = instr
-                    index = idx
-                    break
-            
-            # ran out of instructions to decode but cycles still going so flag to print empty deocde msg at bottom
-            if instr_type is None:
-                print(f"Decoded: []")
+        instr_type, operands, index, pc = None, None, None, None
+
+        # find available instructiont to decode
+        for idx, instr in enumerate(cpu.INSTR_BUFF):
+            if type(instr) != Instruction: 
+                instr_type, operands, pc = instr
+                index = idx
                 break
-            
-            if cpu.bra_pred and instr_type in {"BEQ", "BNE", "BLT", "BGT"}:
-                self.branch_prediction(cpu=cpu, curr_instr=(instr_type, operands, pc)) #NOTE: does branch prediction
-            elif instr_type == "J":
-                cpu.PC += int(operands[0])
-            elif instr_type == "B":
-                cpu.PC = int(operands[0])
+        
+        # ran out of instructions to decode but cycles still going so flag to print empty deocde msg at bottom
+        if instr_type is None:
+            print(f"Decoded: []")
+            return True
+        
+        if not cpu.ooo:
+            cpu.next.append(cpu.PC)
+        
+        if cpu.bra_pred and instr_type in {"BEQ", "BNE", "BLT", "BGT"}:
+            self.branch_prediction(cpu=cpu, curr_instr=(instr_type, operands, pc)) #NOTE: does branch prediction
+        elif instr_type == "J":
+            cpu.PC += int(operands[0])
+        elif instr_type == "B":
+            cpu.PC = int(operands[0])
 
-            renamed_operands = self.rename(instr_type=instr_type, operands=operands, cpu=cpu)
+        renamed_operands = self.rename(instr_type=instr_type, operands=operands, cpu=cpu)
 
-            if renamed_operands is False:
-                print(" >>>No free physical registers stalling<<<")
-                return False
+        if renamed_operands is False:
+            print(" >>>No free physical registers stalling<<<")
+            return False
 
-            # create instruction
-            renamed_operands = np.asarray(renamed_operands) # convert to numpy array
-            instruction = Instruction(type=instr_type, operands=renamed_operands, cycle_latency=self.latencies[instr_type]) # create instruction object
-            instruction.pc = pc
-            instruction.logical_operands = operands
+        # create instruction
+        renamed_operands = np.asarray(renamed_operands) # convert to numpy array
+        instruction = Instruction(type=instr_type, operands=renamed_operands, cycle_latency=self.latencies[instr_type]) # create instruction object
+        instruction.pc = pc
+        instruction.logical_operands = operands
 
-            cpu.INSTR_BUFF.popleft()
-            cpu.IQ.append(instruction) # replace instruction with decoded instruction
-            
-            print(f"Decoded: {instruction}")
+        cpu.INSTR_BUFF.popleft()
+        cpu.IQ.append(instruction) # replace instruction with decoded instruction
+        
+        print(f"Decoded: {instruction}")
 
-            cpu.PC += 1
+        cpu.PC += 1
 
-            break # 1 decode per decode call
-
-
+            # break # 1 decode per decode call
         return True
 
 

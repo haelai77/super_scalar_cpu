@@ -16,9 +16,14 @@ import copy
 
 class Cpu:
     def __init__(self, instr_cache, fetch_unit, decode_unit, dispatch_unit, issue_unit, execute_units, writeresult_unit,
-                 dynamic=False, stat_style="FIXED_always", dyna_style="DYNAMIC_1bit", super_scaling=1, ooo=True, bra_pred=True):
+                 dynamic=False, stat_style="FIXED_always", dyna_style="DYNAMIC_1bit", super_scaling=1, ooo=False, bra_pred=False, rs_bypass=False):
         self.pipelined = False
+        
         self.ooo = ooo
+        self.next = deque([])
+        self.rs_bypass=rs_bypass
+        self.bypass_counter = 0 # for own entertainment
+
         self.bra_pred = bra_pred
         self.branch_wait = False
 
@@ -31,7 +36,7 @@ class Cpu:
         self.pipe = deque([self.fetch]) # holds stages of execution 
         self.super_scaling = super_scaling
 
-        self.exec_units = []
+        # self.exec_units = []
         self.clk_cycles = 0
 
         #pipeline
@@ -85,6 +90,7 @@ class Cpu:
         self.rat.RAT = self.rrat.copy(deep=True)
         self.rat.freelist = self.r_freelist.copy()
         self.PC = self.RSB.popleft()
+        self.next = deque([])
         self.RSB = deque()
         self.pipe = deque()
         self.fetch_unit.HALT = False
@@ -119,17 +125,14 @@ class Cpu:
     def execute(self):
         '''Executes the first instruction in the instruction buffer and removes it from the instruction buffer'''
         # run execution units
-        ret = True
-
         for unit in self.execute_units:
             if not unit.AVAILABLE:
                 unit.execute(cpu=self)
-
-        for unit in self.execute_units:
-            if not unit.AVAILABLE:
-                ret = False
     
-        return ret
+        if not self.pipelined:
+            return all(unit.AVAILABLE for unit in self.execute_units)
+
+        return True
 
     def writeresult(self):
         self.writeresult_unit.writeresult(cpu=self)
@@ -138,7 +141,8 @@ class Cpu:
     def commit(self):
         if self.rob.commit(cpu=self):
             self.instructions += 1
-        return True
+            return True
+        return False
 
     ##########################
     def print_circular_buffer(self):
@@ -186,6 +190,7 @@ class Cpu:
                 self.pipe.extend([self.fetch])
                 self.clk_cycles += 1
 
+                # print(self.next)
                 # print("## rob")
                 # self.print_circular_buffer()
                 # print("## prf")
@@ -242,5 +247,6 @@ class Cpu:
 
         print("Cycles:", self.clk_cycles)
         print("Instrs:", self.instructions)
-        print("IPC:", round(self.instructions/self.clk_cycles, 2))
+        print("IPC:", round(self.instructions/self.clk_cycles, 4))
+        print("bypass_count:", self.bypass_counter)
 

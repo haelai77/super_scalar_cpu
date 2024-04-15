@@ -16,7 +16,7 @@ class LoadStoreBuffer(ReservationStation):
         self.busy = False
 
     #override
-    def add(self, instr, cpu):
+    def add(self, instr, cpu, bypass_on):
         "adds entry into reservation station"
 
         for _ in range(cpu.super_scaling):
@@ -50,6 +50,10 @@ class LoadStoreBuffer(ReservationStation):
                     # must be immediate for LDI
                     else:
                         immediate = operand
+
+                ####################################### bypass
+
+                #######################################
 
                 # add entry to reservation station
                 self.stations = pd.concat([self.stations, pd.DataFrame([{
@@ -86,13 +90,24 @@ class LoadStoreBuffer(ReservationStation):
         self.stations = self.stations.reset_index(drop=True)
         return entry
     
+    def non_ooo_check(self, row, cpu):
+        if not cpu.ooo:
+            if row["INSTRs"].pc == cpu.next[0]:
+                cpu.next.popleft()
+                return True
+            else:
+                return False
+        else:
+            return True
+    
     #override 
     def pop(self, cpu):
         """pops first instruction out of the reservation station if ready (can be LD, LDI or ST)"""
         if len(self.stations):
             row = self.stations.iloc[0].copy()
+
             # if memory is ready to have effective address calculated
-            if row["INSTRs"].type == "ST" and row["val2"] is not None and row["val3"] is not None:
+            if row["INSTRs"].type == "ST" and row["val2"] is not None and row["val3"] is not None and self.non_ooo_check(row, cpu):
                 return self.__pop_row()
                 
             # if load and not earlier stores with same effective address 
@@ -101,16 +116,18 @@ class LoadStoreBuffer(ReservationStation):
                 result = cpu.rob.mem_disambiguate(row["INSTRs"])
 
                 # return load with result from earlier store filled if possible 
-                if result == row["INSTRs"]:
+                if result == row["INSTRs"] and self.non_ooo_check(row, cpu):
                     row["INSTRs"].result = result
                     return self.__pop_row()
+                
                 # else return with result not filled but can read memory without >dependency<
-                elif result == True:
+                elif result == True and self.non_ooo_check(row, cpu):
                     return self.__pop_row()
-                else:
+                
+                else: # case may activate if eariler store is still being processed
                     return False
                 
-            elif row["INSTRs"].type == "LDI" and row["immediate"] is not None:
+            elif row["INSTRs"].type == "LDI" and row["immediate"] is not None and self.non_ooo_check(row, cpu):
                 return self.__pop_row()
         
  
