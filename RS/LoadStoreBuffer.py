@@ -16,7 +16,7 @@ class LoadStoreBuffer(ReservationStation):
         self.busy = False
 
     #override
-    def add(self, instr, cpu, bypass_on):
+    def add(self, instr, cpu, bypass_on=False, eu_type=False):
         "adds entry into reservation station"
 
         for _ in range(cpu.super_scaling):
@@ -52,7 +52,65 @@ class LoadStoreBuffer(ReservationStation):
                         immediate = operand
 
                 ####################################### bypass
+                bypassed = False
+                if bypass_on:
+                    row = pd.Series({
+                            "INSTRs"    : instr,
+                            "tag1"      : tags[0],
+                            "tag2"      : tags[1],
+                            "tag3"      : tags[2],
+                            "val1"      : vals[0],
+                            "val2"      : vals[1],
+                            "val3"      : vals[2],
+                            "immediate" : immediate})
+                
+                    # if memory is ready to have effective address calculated
+                    if (row["INSTRs"].type == "ST" and row["val2"] is not None and row["val3"] is not None and self.non_ooo_check(row, cpu) or
+                        row["INSTRs"].type == "LDI" and row["immediate"] is not None and self.non_ooo_check(row, cpu)):
+                        for execution_unit in cpu.execute_units:
+                            if execution_unit.AVAILABLE and execution_unit.RS_type == eu_type:
+                                execution_unit.instr = row
+                                execution_unit.AVAILABLE = False
+                                execution_unit.cycle_latency = execution_unit.instr["INSTRs"].cycle_latency
+                                bypassed = True
+                                cpu.bypass_counter += 1
+                                break
+                        return bypassed
+                    
+                    # if load and not earlier stores with same effective address 
+                    elif row["INSTRs"].type == "LD" and row["val1"] is not None and row["val2"] is not None:
+                        result = cpu.rob.mem_disambiguate(row["INSTRs"])
 
+                        # return load with result from earlier store filled if possible
+                        if result == row["INSTRs"] and self.non_ooo_check(row, cpu):
+                            row["INSTRs"].result = result
+                            for execution_unit in cpu.execute_units:
+                                if execution_unit.AVAILABLE and execution_unit.RS_type == eu_type:
+                                    row["INSTRs"].effective_address = f"MEM{int(row["val1"]) + int(row["val2"])}"
+
+                                    execution_unit.instr = row
+                                    execution_unit.AVAILABLE = False
+                                    execution_unit.cycle_latency = execution_unit.instr["INSTRs"].cycle_latency
+                                    bypassed = True
+                                    cpu.bypass_counter += 1
+                                    break
+                            return bypassed
+                        # else return with result not filled but can read memory without >dependency<
+                        elif result == True and self.non_ooo_check(row, cpu):
+                            for execution_unit in cpu.execute_units:
+                                if execution_unit.AVAILABLE and execution_unit.RS_type == eu_type:
+                                    row["INSTRs"].effective_address = f"MEM{int(row["val1"]) + int(row["val2"])}"
+                                    
+                                    execution_unit.instr = row
+                                    execution_unit.AVAILABLE = False
+                                    execution_unit.cycle_latency = execution_unit.instr["INSTRs"].cycle_latency
+                                    bypassed = True
+                                    cpu.bypass_counter += 1
+                                    break
+                            return bypassed
+                    else:
+                        return False
+        
                 #######################################
 
                 # add entry to reservation station
@@ -65,6 +123,7 @@ class LoadStoreBuffer(ReservationStation):
                                                                         "val2"      : vals[1],
                                                                         "val3"      : vals[2],
                                                                         "immediate" : immediate}])], ignore_index=True)
+                
             else:
                 print(" >> reservation station full <<")
                 return False

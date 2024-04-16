@@ -50,10 +50,12 @@ class IssueUnit:
                 if cpu.rs_bypass:
                     if self.attempt_bypass(cpu=cpu, instr=instr, rs_type=RS_type):
                         return True
+       
 
                 #fixme doesn't bypass if rob and rs full but should be able to if execution unit 
                 # check for structural hazards
-                if cpu.rob.available() and cpu.RS[RS_type].available(): 
+                if cpu.rob.available() and cpu.RS[RS_type].available():
+                    print("Here")
                     instr = cpu.IQ.popleft()
                     
                     # allocation instruction into rob

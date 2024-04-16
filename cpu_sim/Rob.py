@@ -7,7 +7,7 @@ class Rob:
     def __init__(self, size=64) -> None:
         self.size = size
         self.commit_pointer = 0
-        self.dispatch_pointer = 0
+        self.dispatch_pointer = 0 # NOTE this should probably be called issue pointer :p
         self.ROB = DataFrame({
             "instr"  : [None] * self.size, # type of operation
             "dst"    : [None] * self.size, # where result goes, can be physical register e.g. P1 or MEM location e.g. MEM1
@@ -24,7 +24,10 @@ class Rob:
     
     def mem_disambiguate(self, load):
         """checks if loads have any dependencies on earlier stores as rob is acting as store buffer, returns earlier store result for LD to load"""
-        count_bkwds = self.ROB.index.get_loc(self.ROB.index[ self.ROB["instr"] == load][0])
+        if load not in self.ROB["instr"].unique(): # catches if flush and trying to bypass
+            count_bkwds = self.dispatch_pointer
+        else:
+            count_bkwds = self.ROB.index.get_loc(self.ROB.index[ self.ROB["instr"] == load][0])
         print(f"count_bkwds: {count_bkwds}, commit pointer: {self.commit_pointer}, dispatch pointer: {self.dispatch_pointer}")
 
         end = self.commit_pointer

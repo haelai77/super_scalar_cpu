@@ -191,7 +191,7 @@ class Cpu:
                 self.clk_cycles += 1
 
                 # print(self.next)
-                # print("## rob")
+                # print("~~~~~~~~~~~ rob")
                 # self.print_circular_buffer()
                 # print("## prf")
                 # print(self.PRF.rf.loc[self.rrat.loc[self.rrat["Phys_reg"].apply(lambda reg: reg is not None), "Phys_reg"]])

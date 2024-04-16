@@ -77,7 +77,6 @@ class ReservationStation:
                                 execution_unit.instr = row
                                 execution_unit.AVAILABLE = False
                                 execution_unit.cycle_latency = execution_unit.instr["INSTRs"].cycle_latency
-                                print(f"issue-bypass: {instr}")
                                 bypassed = True
                                 cpu.bypass_counter += 1
                                 break
@@ -109,6 +108,8 @@ class ReservationStation:
     def broadcast(self, rob_entry, result, tags=2):
         """broadcasts rob result to awaiting instructions in reservation station entries"""
         # updates value entries and tag entries so that results from execution now fill the value entries of awaiting instructions
+        if len(self.stations) == 0:
+            return True
         for i in range(1, tags+1):
             self.stations.loc[ self.stations[f"tag{i}"].astype(str) == rob_entry,    f"val{i}"] = int(result)
             self.stations.loc[ self.stations[f"tag{i}"].astype(str) == rob_entry,    f"tag{i}"] = None
