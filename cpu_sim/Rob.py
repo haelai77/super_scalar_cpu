@@ -32,17 +32,26 @@ class Rob:
 
         end = self.commit_pointer
 
-        while count_bkwds != end:
-            count_bkwds = (count_bkwds - 1 + self.size) % self.size
+        count_bkwds = (count_bkwds - 1 + self.size) % self.size
+        # while count_bkwds != end:
+        print("##########",load.effective_address)
+        while self.ROB.iloc[count_bkwds]["instr"] is not None:
             entry = self.ROB.iloc[count_bkwds]
+            print(entry)
             if entry["instr"].type == "ST":
                 # if effective addresses match and result is present
                 if entry["dst"] == load.effective_address and type(entry["result"]) == int:
-                    print("dissambiguated, value to load: ", entry["result"])
+                    print(">>>dissambiguated, value to load: ", entry["result"])
                     return int(entry["result"])
                 # must still be waiting on reg on value to write to mem
                 elif entry["dst"] == load.effective_address and type(entry["result"]) == str:
+                    print(">>>dependency found<<<")
                     return False
+                elif entry["dst"] is None:
+                    print(">>>Earlier Store hasn't completed EF calc")
+                    return False
+            count_bkwds = (count_bkwds - 1 + self.size) % self.size
+
         return True # made it to the end with no stores matching 
             
     def writeresult(self, instr, cpu):
@@ -78,7 +87,6 @@ class Rob:
             result = None
             dst = "END"
             done = 0
-
 
             if instruction.type == "ST": # sets result to register so broad cast can find it and replace with value to write to memory
                 result = instruction.operands[0] 
@@ -154,7 +162,7 @@ class Rob:
         """writes rob-entry instruction into registers and sets rob entry to none/empty """
         ret = False
 
-        for _ in range(cpu.super_scaling):
+        for i in range(cpu.super_scaling):
             if self.ROB.iloc[self.commit_pointer]["instr"] and self.ROB.iloc[self.commit_pointer]["done"]:
                 rob_entry = self.ROB.iloc[self.commit_pointer]
                 print(f"Committed: {rob_entry["instr"]} dst:{rob_entry["dst"]} result:{rob_entry["result"]}")            
@@ -191,11 +199,11 @@ class Rob:
                 self.ROB = self.ROB.replace({np.nan:None})
 
                 ret = True
-        
+            else:
+                print(f"Can't Commit : {self.ROB.iloc[self.commit_pointer]["instr"]}")
         if ret:
             return ret
 
-        print(f"Can't Commit : {self.ROB.iloc[self.commit_pointer]["instr"]}")
         return ret
         
             

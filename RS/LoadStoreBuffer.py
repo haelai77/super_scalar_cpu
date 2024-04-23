@@ -79,10 +79,11 @@ class LoadStoreBuffer(ReservationStation):
                     
                     # if load and not earlier stores with same effective address 
                     elif row["INSTRs"].type == "LD" and row["val1"] is not None and row["val2"] is not None:
+                        row["INSTRs"].effective_address = f"MEM{int(row["val1"]) + int(row["val2"])}"
                         result = cpu.rob.mem_disambiguate(row["INSTRs"])
 
                         # return load with result from earlier store filled if possible
-                        if result == row["INSTRs"] and self.non_ooo_check(row, cpu):
+                        if type(result) is int and self.non_ooo_check(row, cpu):
                             row["INSTRs"].result = result
                             for execution_unit in cpu.execute_units:
                                 if execution_unit.AVAILABLE and execution_unit.RS_type == eu_type:
@@ -96,7 +97,7 @@ class LoadStoreBuffer(ReservationStation):
                                     break
                             return bypassed
                         # else return with result not filled but can read memory without >dependency<
-                        elif result == True and self.non_ooo_check(row, cpu):
+                        elif result is True and self.non_ooo_check(row, cpu):
                             for execution_unit in cpu.execute_units:
                                 if execution_unit.AVAILABLE and execution_unit.RS_type == eu_type:
                                     row["INSTRs"].effective_address = f"MEM{int(row["val1"]) + int(row["val2"])}"
@@ -162,8 +163,10 @@ class LoadStoreBuffer(ReservationStation):
     #override 
     def pop(self, cpu):
         """pops first instruction out of the reservation station if ready (can be LD, LDI or ST)"""
-        if len(self.stations):
-            row = self.stations.iloc[0].copy()
+        # if len(self.stations):
+        for i in range(len(self.stations)):
+
+            row = self.stations.iloc[i].copy() # todo test if this can go out of order
 
             # if memory is ready to have effective address calculated
             if row["INSTRs"].type == "ST" and row["val2"] is not None and row["val3"] is not None and self.non_ooo_check(row, cpu):
@@ -172,18 +175,28 @@ class LoadStoreBuffer(ReservationStation):
             # if load and not earlier stores with same effective address 
             elif row["INSTRs"].type == "LD" and row["val1"] is not None and row["val2"] is not None:
                 row["INSTRs"].effective_address = f"MEM{int(row["val1"]) + int(row["val2"])}"
-                result = cpu.rob.mem_disambiguate(row["INSTRs"])
+                result = cpu.rob.mem_disambiguate(row["INSTRs"]) #NOTE loads only get popped if diambiguation is successful
+                #note: this works because it is in order
 
+                # # return load with result from earlier store filled if possible 
+                # if result == row["INSTRs"] and self.non_ooo_check(row, cpu):
+                #     row["INSTRs"].result = result
+                #     return self.__pop_row()
+                
+                # # else return with result not filled but can read memory without >dependency<
+                # elif result == True and self.non_ooo_check(row, cpu):
+                #     return self.__pop_row()
+                
                 # return load with result from earlier store filled if possible 
-                if result == row["INSTRs"] and self.non_ooo_check(row, cpu):
+                if type(result) is int and self.non_ooo_check(row, cpu):
                     row["INSTRs"].result = result
                     return self.__pop_row()
                 
                 # else return with result not filled but can read memory without >dependency<
-                elif result == True and self.non_ooo_check(row, cpu):
+                elif result is True and self.non_ooo_check(row, cpu):
                     return self.__pop_row()
-                
                 else: # case may activate if eariler store is still being processed
+                    print(f">>>{row["INSTRs"]} not ready<<<")
                     return False
                 
             elif row["INSTRs"].type == "LDI" and row["immediate"] is not None and self.non_ooo_check(row, cpu):

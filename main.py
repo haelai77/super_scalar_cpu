@@ -55,7 +55,7 @@ WriteResultUnit = WriteResultUnit.WriteResultUnit()
 
 cpu = Cpu(instr_cache, fetch_unit, decode_unit, dispatch_unit, issue_unit, execute_units, WriteResultUnit,
           super_scaling=args.super_scaling, stat_style=args.static_style, dyna_style=args.dyna_style, dynamic=args.dynamic,
-          bra_pred=args.bra_pred, ooo=args.ooo, rs_bypass=args.rs_bypass)
+          bra_pred=args.bra_pred, ooo=args.ooo, rs_bypass=args.rs_bypass, pipelined=args.pipelined )
 
 
-cpu.run(debug=args.debug, step_toggle=args.step, pipelined=args.pipelined )
+cpu.run(debug=args.debug, step_toggle=args.step)

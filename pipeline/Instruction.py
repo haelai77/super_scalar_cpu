@@ -12,6 +12,7 @@ class Instruction:
         self.effective_address = None # for rob write
         self.branch_success = False
         # self.branch_target = None
+        self.clk_stamp = None
         self.pc = None
         ###############################################
 

@@ -15,9 +15,9 @@ from RS.Branch_RS import Branch_RS
 import copy
 
 class Cpu:
-    def __init__(self, instr_cache, fetch_unit, decode_unit, dispatch_unit, issue_unit, execute_units, writeresult_unit,
+    def __init__(self, instr_cache, fetch_unit, decode_unit, dispatch_unit, issue_unit, execute_units, writeresult_unit, pipelined = False,
                  dynamic=False, stat_style="FIXED_always", dyna_style="DYNAMIC_1bit", super_scaling=1, ooo=False, bra_pred=False, rs_bypass=False):
-        self.pipelined = False
+        self.pipelined = pipelined
         
         self.ooo = ooo
         self.next = deque([])
@@ -33,11 +33,13 @@ class Cpu:
         self.PC: int = 0 # instruction pointer 
         self.RSB = deque([]) # return stack buffer, for when speculation fails
 
-        self.pipe = deque([self.fetch]) # holds stages of execution 
-        self.super_scaling = super_scaling
 
         # self.exec_units = []
         self.clk_cycles = 0
+        # self.pipe = deque([self.fetch]) # holds stages of execution 
+        self.pipe = deque([self.fetch, self.decode, self.issue, self.dispatch, self.execute, self.writeresult, self.commit][::-1]) if pipelined else deque([self.fetch])
+        # if pipelined: self.pipe.extend(([self.fetch, self.decode, self.issue]*super_scaling)[::-1]) # append fetch decode issue, super scaling number of times
+        self.super_scaling = super_scaling
 
         #pipeline
         self.fetch_unit = fetch_unit
@@ -54,7 +56,7 @@ class Cpu:
         self.PRF: Register_File = Register_File(num_regs = 64) # architectural register file
         self.INSTR_CACHE = instr_cache # from assembler
         self.INSTR_BUFF = deque(maxlen = super_scaling) # instruction queue for speculative fetch and decode / stage between fetch and decode
-        self.IQ         = deque(maxlen = 64) # instruction queue / stage between decode and issue
+        self.IQ         = deque(maxlen = 128) # instruction queue / stage between decode and issue
         
         #addons
         self.rob = Rob(size=64) # 128 entries
@@ -92,7 +94,7 @@ class Cpu:
         self.PC = self.RSB.popleft()
         self.next = deque([])
         self.RSB = deque()
-        self.pipe = deque()
+        # self.pipe = deque()#NOTE temp 
         self.fetch_unit.HALT = False
         self.INSTR_BUFF = deque(maxlen = self.super_scaling)
         self.IQ         = deque(maxlen = 64) # instruction queue / stage between decode and issue
@@ -154,10 +156,10 @@ class Cpu:
 
         print(pd.DataFrame(buffer).replace({np.nan:None}))
 
-    def run(self, debug, step_toggle = False, pipelined = False):
+    def run(self, debug, step_toggle = False):
         '''runs the cpu simulation'''
         self.debug = debug
-        self.pipelined = pipelined
+        # self.pipelined = pipelined
 
         pipe_format = {
             self.fetch: "fetch",
@@ -175,26 +177,37 @@ class Cpu:
             print(f" >>> pipelined : {[pipe_format[stage] for stage in self.pipe][::-1]} <<< ")
 
             if self.pipelined:
-                for _ in range(len(self.pipe)): # iterate through all stages in the pipe
-                    stage = self.pipe.popleft()
+                for i in range(len(self.pipe)): # iterate through all stages in the pipe
+                    # stage = self.pipe.popleft()
+                    stage = self.pipe[i]
                     stage()
+                    if stage in {self.fetch, self.decode, self.issue}:
+                        for _ in range(self.super_scaling-1):
+                            stage()
 
                     if self.flushed:
                         self.flushed = False
                         break
                     
-                    if stage != self.commit and not self.finished: # if the stage wasn't write back add the next corresponding step
-                        self.pipe.append(self.transition[stage])
+                    # if stage != self.commit and not self.finished: # if the stage wasn't write back add the next corresponding step
+                    #     self.pipe.append(self.transition[stage])
 
                 # prep more fetches but not exceeding end of instr cache
-                self.pipe.extend([self.fetch])
+                # self.pipe.extend([self.fetch])
                 self.clk_cycles += 1
 
                 # print(self.next)
-                # print("~~~~~~~~~~~ rob")
-                # self.print_circular_buffer()
+                print(self.rat.RAT.to_string)
+                print("~~~~~~~~~~~ rob")
+                self.print_circular_buffer()
+                # print("~~~~~~~~~~~ alurs")
+                # print(self.RS["ALU"].stations.to_string())
                 # print("## prf")
                 # print(self.PRF.rf.loc[self.rrat.loc[self.rrat["Phys_reg"].apply(lambda reg: reg is not None), "Phys_reg"]])
+                print(*[f"R{n} : {self.rrat.loc[f"R{n}"]["Phys_reg"]} : {self.PRF.rf.loc[self.rrat.loc[f"R{n}"]["Phys_reg"],"value"]}" for n in range(32) if self.rrat.loc[f"R{n}"]["Phys_reg"] is not None and self.PRF.rf.loc[self.rrat.loc[f"R{n}","Phys_reg"], "ready"] ],
+                      sep="\n")
+                print("~~~~~~~~~~~ mem")
+                print(*self.MEM.mem, sep=" ")
 
                 if self.debug:
                     print("## rsb")
@@ -250,3 +263,5 @@ class Cpu:
         print("IPC:", round(self.instructions/self.clk_cycles, 4))
         print("bypass_count:", self.bypass_counter)
 
+# python main.py -pipelined -ooo -rs_bypass -bra_pred -dynamic -super_scaling 4 -n_alu 4 -n_lsu 2 -n_bra 2
+# python main.py 
