@@ -1,8 +1,9 @@
 # FACTORIAL
 # 10! = 3628800
+# 15! = 1307674368000
 
 START:
-    LDI R1 10
+    LDI R1 15
 
     # counter 
     ST R1 R0 R0

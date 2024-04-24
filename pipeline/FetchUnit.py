@@ -57,6 +57,9 @@ class FetchUnit:
 
             # static prediction
             else:
+                # print(curr_instr, cpu.PC)
+                # input(f"{int(curr_instr[1][2])}, {cpu.PC}, {int(curr_instr[1][2]) < cpu.PC}")
+
                 taken_state = self.static_prediction(style=cpu.static_BRA_style, target=int(curr_instr[1][2]), cpu=cpu)
                 # if taken, buffer rollback to not taken path
                 if taken_state:
@@ -94,6 +97,9 @@ class FetchUnit:
         if curr_instr[0] == "HALT":
             self.HALT = True
 
+        if not cpu.ooo:
+            cpu.next.append(cpu.PC)
+
         # resolve branch labels
         curr_instr = self.predecode(curr_instr, cpu.PC)
         instr_type, operands, pc = curr_instr
@@ -103,6 +109,7 @@ class FetchUnit:
             cpu.branch_wait = True
 
         elif curr_instr[0] in {"BEQ", "BNE", "BGT", "BLT"}: # branch prediction
+            cpu.branch_count += 1
             if cpu.bra_pred and instr_type in {"BEQ", "BNE", "BLT", "BGT"}:
                 self.branch_prediction(cpu=cpu, curr_instr=(instr_type, operands, pc)) #NOTE: does branch prediction
 
@@ -117,6 +124,8 @@ class FetchUnit:
         cpu.INSTR_BUFF.append(curr_instr)
 
         print(f"Fetched: {curr_instr}")
+
+     
         cpu.PC += 1
         return True
 

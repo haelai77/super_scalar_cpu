@@ -16,17 +16,25 @@ import copy
 
 class Cpu:
     def __init__(self, instr_cache, fetch_unit, decode_unit, dispatch_unit, issue_unit, execute_units, writeresult_unit, pipelined = False,
-                 dynamic=False, stat_style="FIXED_always", dyna_style="DYNAMIC_1bit", super_scaling=1, ooo=False, bra_pred=False, rs_bypass=False):
+                 dynamic=False, stat_style="FIXED_always", dyna_style="DYNAMIC_1bit", super_scaling=1, ooo=False, bra_pred=False, rs_bypass=False, file=None):
+        self.file = file
+
         self.pipelined = pipelined
         
         self.ooo = ooo
         self.next = deque([])
+
         self.rs_bypass=rs_bypass
         self.bypass_counter = 0 # for own entertainment
+        self.ALU_byp_counter = 0
+        self.LSU_byp_counter = 0
+        self.BRA_byp_counter = 0
+
+        self.branch_count = 0
 
         self.bra_pred = bra_pred
         self.branch_wait = False
-
+        self.flush_counter = 0
         self.flushed = False
         self.finished: int = 0
         self.instructions: int = 0
@@ -89,6 +97,7 @@ class Cpu:
 
     ### pipeline functions ###
     def flush(self):
+        self.flush_counter += 1
         self.rat.RAT = self.rrat.copy(deep=True)
         self.rat.freelist = self.r_freelist.copy()
         self.PC = self.RSB.popleft()
@@ -122,7 +131,8 @@ class Cpu:
     
     def dispatch(self):
         '''issues an instruction from reservation station to execution unit'''
-        return self.dispatch_unit.dispatch(cpu=self)
+        ret = self.dispatch_unit.dispatch(cpu=self)
+        return ret
 
     def execute(self):
         '''Executes the first instruction in the instruction buffer and removes it from the instruction buffer'''
@@ -142,7 +152,7 @@ class Cpu:
 
     def commit(self):
         if self.rob.commit(cpu=self):
-            self.instructions += 1
+            # self.instructions += 1
             return True
         return False
 
@@ -181,6 +191,7 @@ class Cpu:
                     # stage = self.pipe.popleft()
                     stage = self.pipe[i]
                     stage()
+
                     if stage in {self.fetch, self.decode, self.issue}:
                         for _ in range(self.super_scaling-1):
                             stage()
@@ -188,22 +199,16 @@ class Cpu:
                     if self.flushed:
                         self.flushed = False
                         break
+ 
+                # print(self.RS["BRA"].stations.to_string())
                     
-                    # if stage != self.commit and not self.finished: # if the stage wasn't write back add the next corresponding step
-                    #     self.pipe.append(self.transition[stage])
-
-                # prep more fetches but not exceeding end of instr cache
-                # self.pipe.extend([self.fetch])
                 self.clk_cycles += 1
 
                 # print(self.next)
-                print(self.rat.RAT.to_string)
-                print("~~~~~~~~~~~ rob")
+                # print(self.rat.RAT.to_string)
+                # print("~~~~~~~~~~~ rob")
                 self.print_circular_buffer()
-                # print("~~~~~~~~~~~ alurs")
-                # print(self.RS["ALU"].stations.to_string())
-                # print("## prf")
-                # print(self.PRF.rf.loc[self.rrat.loc[self.rrat["Phys_reg"].apply(lambda reg: reg is not None), "Phys_reg"]])
+                print("~~~~~~~~~~~ regs")
                 print(*[f"R{n} : {self.rrat.loc[f"R{n}"]["Phys_reg"]} : {self.PRF.rf.loc[self.rrat.loc[f"R{n}"]["Phys_reg"],"value"]}" for n in range(32) if self.rrat.loc[f"R{n}"]["Phys_reg"] is not None and self.PRF.rf.loc[self.rrat.loc[f"R{n}","Phys_reg"], "ready"] ],
                       sep="\n")
                 print("~~~~~~~~~~~ mem")
@@ -234,6 +239,8 @@ class Cpu:
                     self.pipe.append(self.transition[stage])
                 else:
                     self.pipe.append(self.fetch)
+                print("~~~~~~~~~~~ mem")
+                print(*self.MEM.mem, sep=" ")
 
                 self.clk_cycles += 1
 
@@ -262,6 +269,23 @@ class Cpu:
         print("Instrs:", self.instructions)
         print("IPC:", round(self.instructions/self.clk_cycles, 4))
         print("bypass_count:", self.bypass_counter)
+        print("alu bypass_count:", self.ALU_byp_counter)
+        print("lsu bypass_count:", self.LSU_byp_counter)
+        print("bra bypass_count:", self.BRA_byp_counter)
+        print("bypass_count:", self.bypass_counter)
+        print(F"flush counter: {self.flush_counter}")
+        print(f"acc: {(self.branch_count-self.flush_counter)/self.branch_count}")
+        print(f"super scaling: { self.super_scaling}")
+        print(f"ALUs: {len([u for u in self.execute_units if u.RS_type == "ALU"])}")
+        print(f"LSU: {len([u for u in self.execute_units if u.RS_type == "LSU"])}")
+        print(f"BRAs: {len([u for u in self.execute_units if u.RS_type == "BRA"])}")
+        print(f"stat style: {self.static_BRA_style}")
+        print(f"dynamic: {self.dynamic}")
+        print(f"dyna style: {self.dyna_BRA_style}")
+        print(f"file: {self.file}")
+        # print("## BTB")
+        # print(self.BTB.BTB)
+
 
 # python main.py -pipelined -ooo -rs_bypass -bra_pred -dynamic -super_scaling 4 -n_alu 4 -n_lsu 2 -n_bra 2
 # python main.py 

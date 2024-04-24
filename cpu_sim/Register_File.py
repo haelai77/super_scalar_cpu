@@ -62,7 +62,12 @@ class Register_File:
     
     def get_rob_result(self, reg, cpu):
         """returns result stored in rob"""
-        return cpu.rob.ROB.loc[self.rob_entry(reg)]["result"]
+        result = cpu.rob.ROB.loc[self.rob_entry(reg)]["result"]
+        if result is None:
+            return False
+        else:
+            return result
+        # return cpu.rob.ROB.loc[self.rob_entry(reg)]["result"]
     
     ######## retrieve value from register or rob if available in rob
     def get_available_operand(self, reg, cpu):

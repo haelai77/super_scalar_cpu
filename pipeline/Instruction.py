@@ -11,12 +11,11 @@ class Instruction:
         self.result = None # for CDB broadcast
         self.effective_address = None # for rob write
         self.branch_success = False
-        # self.branch_target = None
-        self.clk_stamp = None
+        self.bypassed_flag = False
         self.pc = None
         ###############################################
 
     def __repr__(self):
         if self.type in {"BGE","BLT", "BNE", "BEQ"}:
             return f"{self.type}_{self.operands}_{self.branch_success}"
-        return f"{self.type}_{self.operands}"
+        return f"{self.type}_{self.operands}_{self.result}"

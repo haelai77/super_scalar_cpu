@@ -1,6 +1,3 @@
-from .Instruction import Instruction
-from collections import deque
-
 class DispatchUnit:
     
     def dispatch(self, cpu):
@@ -18,14 +15,30 @@ class DispatchUnit:
             return False
 
         for execution_unit in cpu.execute_units:
+            # print(execution_unit.AVAILABLE , dispatch_counter < cpu.super_scaling , execution_unit.take_instruction(cpu))
             # if there is non-busy execution unit assign an instruction if possible per super scale
-            # if execution_unit.AVAILABLE and dispatch_counter < cpu.super_scaling and execution_unit.take_instruction(cpu):
-            if execution_unit.AVAILABLE and execution_unit.take_instruction(cpu):
+            if execution_unit.AVAILABLE and dispatch_counter < cpu.super_scaling and execution_unit.take_instruction(cpu):
+            # if execution_unit.AVAILABLE and execution_unit.take_instruction(cpu):
                 print(f"Dispatched: {execution_unit.instr["INSTRs"]} to {execution_unit.RS_type}")
                 execution_unit.cycle_latency = execution_unit.instr["INSTRs"].cycle_latency
                 dispatch_counter += 1
+            else:
+                print("Dispatched: []")
+        
+        # for i in range(cpu.super_scaling - dispatch_counter):
+        #         print(f"Dispatched: []")
 
-        if dispatch_counter == 0 and len(cpu.INSTR_BUFF) != 0:
-            print(f"Dispatched: []")
-            return False
+        # for _ in len(cpu.super_scaling):
+        #     for execution_unit in cpu.execute_units:
+        #         # if there is non-busy execution unit assign an instruction if possible per super scale
+        #         if execution_unit.AVAILABLE and dispatch_counter < cpu.super_scaling and execution_unit.take_instruction(cpu):
+        #         # if execution_unit.AVAILABLE and execution_unit.take_instruction(cpu):
+        #             print(f"Dispatched: {execution_unit.instr["INSTRs"]} to {execution_unit.RS_type}")
+        #             execution_unit.cycle_latency = execution_unit.instr["INSTRs"].cycle_latency
+        #             dispatch_counter += 1
+        #         else:
+        #             print(f"Dispatched: []")
+                
+
+  
         return True

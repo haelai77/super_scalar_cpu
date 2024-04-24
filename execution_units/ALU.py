@@ -20,15 +20,8 @@ class ALU:
 
             "CMP"   : self.CMP,
 
-            # "BEQ"   : self.BEQ,
-            # "BNE"   : self.BNE,
-            # "BLT"   : self.BLT,
-            # "BGT"   : self.BGT,
-
-            # "J"     : self.J,
-            # "B"     : self.B,
-
-            "HALT"  : self.HALT
+            "HALT"  : self.HALT,
+            "NOP"   : self.NOP
         }
 
     def take_instruction(self, cpu):
@@ -63,12 +56,12 @@ class ALU:
             instruction = self.exe[instr_type]()
 
         # send result/instruction along the CDB
-        cpu.CDB.append(instruction)
+        if instruction.type != "NOP": cpu.CDB.append(instruction)
         self.AVAILABLE = True
         
         ##################
         # broadcast results to reservation stations 
-        if instruction.type not in {"HALT", "ST", "BEQ", "BNE", "BLT", "BGT", "J", "B"}:
+        if instruction.type not in {"HALT", "ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "NOP"}:
             
             for rs_type in ["ALU", "LSU", "BRA"]:
                 cpu.RS[rs_type].broadcast(result=instruction.result, rob_entry=cpu.PRF.rob_entry(instruction.operands[0]))
@@ -137,4 +130,6 @@ class ALU:
         '''stop!'''
         cpu.finished = True
 
+    def NOP(self):
+        return self.instr["INSTRs"]
         

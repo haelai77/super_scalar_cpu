@@ -20,7 +20,8 @@ class DecodeUnit:
             "BGT"   : 4,
             "J"     : 4,
             "B"     : 4,
-            "HALT"  : 0}
+            "HALT"  : 0,
+            "NOP"   : 5,}
 
     def rename(self, cpu, instr_type, operands):
         """renames logical registers operands to physical register operands"""
@@ -102,26 +103,29 @@ class DecodeUnit:
 
         # for _ in range(cpu.super_scaling):
 
-        instr_type, operands, index, pc = None, None, None, None
+        instr_type, operands, pc = None, None, None
 
         # if cpu.super_scaling > 1 and pc == cpu.PC:# pretty sure I don't need the greater than 1 # NOTE as for super scaling we do a section of the pipeline twice we don't want to issue early for an earlier fetch in cycle
         #     print("Decoded: []") # for super scaling 
         #     return False
 
         # find available instructiont to decode
-        for idx, instr in enumerate(cpu.INSTR_BUFF):
-            if type(instr) != Instruction: 
+        for instr in (cpu.INSTR_BUFF):
+            if type(instr) != Instruction:
                 instr_type, operands, pc = instr
-                index = idx
+                # if pc == cpu.PC: # skip instructions that were fetched in the same cycle
+                #     continue
                 break
-        
+
+        #     print("Decode: [] >> can't decode something fetched in the same cycle")
+        #     return False
+
         # ran out of instructions to decode but cycles still going so flag to print empty deocde msg at bottom
         if instr_type is None:
             print(f"Decoded: []")
             return True
         
-        if not cpu.ooo:
-            cpu.next.append(cpu.PC)
+
         
         # if cpu.bra_pred and instr_type in {"BEQ", "BNE", "BLT", "BGT"}:
         #     self.branch_prediction(cpu=cpu, curr_instr=(instr_type, operands, pc)) #NOTE: does branch prediction

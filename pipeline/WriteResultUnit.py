@@ -8,6 +8,7 @@ class WriteResultUnit:
         if len(cpu.CDB):
             for _ in range(len(cpu.CDB)):
                 instruction = cpu.CDB.popleft() # gets completed instuction from the CBD
+                
                 if instruction.type in {"BEQ", "BNE", "BLT", "BGT"} and not cpu.bra_pred:
                     cpu.branch_wait = False
                     if instruction.branch_success:

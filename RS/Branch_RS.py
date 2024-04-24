@@ -3,7 +3,7 @@ import numpy as np
 from pandas import DataFrame
 
 class Branch_RS(ReservationStation):
-    def __init__(self, maxlen=9) -> None:
+    def __init__(self, maxlen=6) -> None:
         super().__init__(maxlen)
 
     #override
@@ -30,22 +30,24 @@ class Branch_RS(ReservationStation):
 
     #override
     def pop(self, cpu):
-        for i in range(len(self.stations)):
-            row = self.stations.iloc[i]
-            
-            if not cpu.ooo:
-                if row["INSTRs"].pc == cpu.next[0]:
-                    cpu.next.popleft()
-                else:
-                    print("waiting for ",cpu.next[0])
+        if len(self.stations):
+            for i in range(len(self.stations)):
+                row = self.stations.iloc[i]
+                
+                if not cpu.ooo:
+                    print(cpu.next, row["INSTRs"].pc)
+                    if row["INSTRs"].pc == cpu.next[0]:
+                        cpu.next.popleft()
+                    else:
+                        print("waiting for ",cpu.next[0])
+                        return False
+
+                if (row["val1"] is not None) and (row["val2"] is not None and row["immediate"] is not None): # cond branches
+                    return self.__pop_row(i)
+                elif (row["tag1"] is None and row["tag2"] is None and row["val1"] is None and row["val2"] is None and row["immediate"] is not None): #uncond jump
+                    return self.__pop_row(i)
+
+                if not cpu.ooo: # breaks on first loop if not ooo
                     return False
-
-            if (row["val1"] is not None) and (row["val2"] is not None and row["immediate"] is not None): # cond branches
-                return self.__pop_row(i)
-            elif (row["tag1"] is None and row["tag2"] is None and row["val1"] is None and row["val2"] is None and row["immediate"] is not None): #uncond jump
-                return self.__pop_row(i)
-
-            if not cpu.ooo: # breaks on first loop if not ooo
-                return False
 
         return False

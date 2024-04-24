@@ -21,10 +21,13 @@ START:
     LDI R1 123215
     # B
     LDI R2 235
+    
 
+    # R4 and R5 are used for swapping a and b around in via memory i.e. mem addresses
     LDI R4 2
     LDI R5 3
 
+# R1 mod R2 stored into R3
 MOD:
     # a mod b = a - intdiv(a, b) * b
     DIV R3 R1 R2

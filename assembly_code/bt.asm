@@ -1,5 +1,5 @@
 LDI R1 0
-LDI R3 4
+LDI R3 40
 
 B START
 

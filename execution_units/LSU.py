@@ -82,7 +82,8 @@ class LSU:
         instruction = self.instr["INSTRs"]
 
         # if there is a value able to be written back assign prep for CDB
-        if self.instr["val1"]:
-            instruction.result = self.instr["val1"]
+        if self.instr["val1"] is not None and instruction.result is None:
+            instruction.result = (self.instr["val1"])
+
         instruction.effective_address = f"MEM{int(self.instr["val2"]) + int(self.instr["val3"])}"
         return instruction
