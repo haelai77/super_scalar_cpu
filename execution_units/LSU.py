@@ -14,6 +14,8 @@ class LSU:
             "LD"    : self.LD, # address resolution
             "LDI"   : self.LDI,
             "ST"    : self.ST, # address resolution
+            "STPI"  : self.STPI,
+            "LDPI"  : self.LDPI,
         }
 
     def take_instruction(self, cpu):
@@ -47,10 +49,15 @@ class LSU:
         if instruction.type not in {"HALT", "ST", "BEQ", "BNE", "BLT", "BGT", "J", "B"}:
             
             for rs_type in ["ALU", "LSU", "BRA"]:
-                cpu.RS[rs_type].broadcast(result=instruction.result, rob_entry=cpu.PRF.rob_entry(instruction.operands[0]))
-                
+                if instruction.type != "STPI": # not STPI because we still need to broad cast results for LDPI and STPI effec addr
+                    cpu.RS[rs_type].broadcast(result=instruction.result, rob_entry=cpu.PRF.rob_entry(instruction.operands[0]))
+
+                if instruction.type in {"STPI", "LDPI"}:
+                    # print(f"finding corresponding rob for {instruction.operands[1]}")
+                    cpu.RS[rs_type].broadcast(result=int(instruction.effective_address[-1]), rob_entry=cpu.PRF.rob_entry(instruction.base_reg))
+
             # broadcast result to possible awaiting stores
-            cpu.rob.broadcast(result=instruction.result, reg=instruction.operands[0]) # operand zero is dst reg
+            if instruction.type != "STPI": cpu.rob.broadcast(result=instruction.result, reg=instruction.operands[0]) # operand zero is dst reg
         ###################
 
         self.instr = None
@@ -63,7 +70,8 @@ class LSU:
     
     def LD(self, cpu): 
         '''r1 <- MEM[regs[r2] + regs[r3]]'''
-        # at this point it should have result either already filled via ST in rob or not filled and just need to read
+
+        # at this point it should have result either already filled via earlier ST in rob or not filled and just need to read
         if not self.instr["INSTRs"].result:
             self.instr["INSTRs"].result = cpu.MEM.read(f"MEM{int(self.instr["val1"]) + int(self.instr["val2"])}")
         instruction = self.instr["INSTRs"]
@@ -86,4 +94,20 @@ class LSU:
             instruction.result = (self.instr["val1"])
 
         instruction.effective_address = f"MEM{int(self.instr["val2"]) + int(self.instr["val3"])}"
+        return instruction
+    
+    def STPI(self,cpu):
+        instruction = self.instr["INSTRs"]
+        if self.instr["val1"] is not None and instruction.result is None:
+            instruction.result = (self.instr["val1"])
+
+        instruction.effective_address = f"MEM{int(self.instr["val2"]) + int(self.instr["val3"])}"
+        return instruction
+
+    def LDPI(self,cpu):
+        instruction = self.instr["INSTRs"]
+
+        if not self.instr["INSTRs"].result:
+            self.instr["INSTRs"].result = cpu.MEM.read(f"MEM{int(self.instr["val1"]) + int(self.instr["val2"])}")
+        
         return instruction

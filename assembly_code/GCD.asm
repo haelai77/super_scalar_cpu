@@ -34,7 +34,6 @@ MOD:
     MUL R3 R2 R3
     SUB R3 R1 R3
 
-
     BEQ R3 R0 END
 
     # STORE B

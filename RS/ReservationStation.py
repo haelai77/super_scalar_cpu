@@ -37,11 +37,27 @@ class ReservationStation:
                 operand_available = cpu.PRF.get_available_operand(reg=operand, cpu=cpu) if operand[0] == "P" else operand
                 
                 #################
-                # check cdb (superscaler broadcasting fix)
-                for instruction in cpu.CDB:
-                    if instruction.type not in {"HALT", "ST", "BEQ", "BNE", "BLT", "BGT", "J", "B"}:
-                        if instruction.operands[0] == operand:
-                            operand_available = instruction.result
+                if operand_available is False: 
+                    for instruction in cpu.CDB:
+                        # skip instructions that don't write
+                        if instruction.type not in {"HALT", "ST", "BEQ", "BNE", "BLT", "BGT", "J", "B"}:
+
+                            if instr.type not in {"STPI", "LDPI"} and instruction.operands[0] == operand:
+                                operand_available = instruction.result
+                                break
+
+                            # STPI
+                            elif instr.type in {"STPI", "LDPI"}:
+                                if instruction.base_reg == operand: # if base register is equal to operand reg required take effective address
+                                    operand_available = instruction.effective_address
+
+                            #LDPI
+                            # elif instr.type in {"LDPI"}:
+                            #     if instruction.base_reg == operand: # if base register is equal to operand value required take effective address
+                            #         operand_available = instruction.effective_address
+
+                            # elif instruction.operands[0] == operand: # if resultant register is equal to operand reg take value # note might have to move this down
+                            #     operand_available = instruction.result
                 #################
 
                 # set value if available
@@ -119,7 +135,8 @@ class ReservationStation:
         # updates value entries and tag entries so that results from execution now fill the value entries of awaiting instructions
         if len(self.stations) == 0:
             return True
-        for i in range(1, tags+1):
+        # print(f"broadcasting:{result} -> {rob_entry}")
+        for i in range(1, tags+1): 
             self.stations.loc[ self.stations[f"tag{i}"].astype(str) == rob_entry,    f"val{i}"] = int(result)
             self.stations.loc[ self.stations[f"tag{i}"].astype(str) == rob_entry,    f"tag{i}"] = None
         return True

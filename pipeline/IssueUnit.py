@@ -34,6 +34,7 @@ class IssueUnit:
         return False
 
     def issue(self, cpu):
+        print(cpu.CDB)
         if len(cpu.IQ):
             # for _ in range(cpu.super_scaling):
             #     if len(cpu.IQ) == 0:
@@ -43,7 +44,7 @@ class IssueUnit:
 
             RS_type = "ALU" 
 
-            if instr.type in {"ST", "LD", "LDI"}: # Reservation station type is LSU
+            if instr.type in {"ST", "LD", "LDI", "STPI", "LDPI"}: # Reservation station type is LSU
                 RS_type = "LSU"
 
             elif instr.type in {"BEQ", "BNE", "BLT", "BGT", "J", "B"}:
@@ -64,11 +65,20 @@ class IssueUnit:
                 rob_entry = cpu.rob.add(instr)
 
                 # if you are writing to a regsiter you need to set ready bit in PRF/scordboard to false
-                if instr.type not in {"ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "HALT", "NOP"}: 
+                if instr.type not in {"ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "HALT", "NOP", "STPI"}: 
+                    # set bit unready
+                    # if instr.type == "ADDI" and instr.operands[0] == "P9":
+                    #     input(f"{instr.operands[0]}")
                     cpu.PRF.set_unready(reg=instr.operands[0])
 
                     # set corresponding rob entry that will write to physical register
                     cpu.PRF.set_rob_entry(reg=instr.operands[0], rob_entry=rob_entry)
+                    #######################
+                    #NOTE special case for STPI AND LDPI
+                if instr.type in {"STPI", "LDPI"}: # different rob entry for base pointer
+                    cpu.PRF.set_unready(reg=instr.base_reg) # set second register we're writing to as unready
+                    cpu.PRF.set_rob_entry(reg=instr.base_reg, rob_entry=rob_entry+"_base") # set rob entry
+                print(instr)
                 cpu.RS[RS_type].add(instr, cpu, bypass_on=False)
                 
                 print(f"Issued: {instr} to RS_{RS_type}")

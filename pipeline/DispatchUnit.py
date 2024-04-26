@@ -17,8 +17,8 @@ class DispatchUnit:
         for execution_unit in cpu.execute_units:
             # print(execution_unit.AVAILABLE , dispatch_counter < cpu.super_scaling , execution_unit.take_instruction(cpu))
             # if there is non-busy execution unit assign an instruction if possible per super scale
-            if execution_unit.AVAILABLE and dispatch_counter < cpu.super_scaling and execution_unit.take_instruction(cpu):
-            # if execution_unit.AVAILABLE and execution_unit.take_instruction(cpu):
+            # if execution_unit.AVAILABLE and dispatch_counter < cpu.super_scaling and execution_unit.take_instruction(cpu):
+            if execution_unit.AVAILABLE and execution_unit.take_instruction(cpu):
                 print(f"Dispatched: {execution_unit.instr["INSTRs"]} to {execution_unit.RS_type}")
                 execution_unit.cycle_latency = execution_unit.instr["INSTRs"].cycle_latency
                 dispatch_counter += 1

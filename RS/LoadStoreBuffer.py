@@ -27,17 +27,35 @@ class LoadStoreBuffer(ReservationStation):
             vals = [None] * 3
             immediate = None
             # if LD operation we only want to read the source operands not the result operand i.e. operand 0
-            operands = instr.operands[1:] if instr.type == "LD" else instr.operands 
+            operands = instr.operands[1:] if instr.type in {"LD", "LDPI"} else instr.operands 
 
             for i, operand in enumerate(operands):
                 operand_available = cpu.PRF.get_available_operand(reg=operand, cpu=cpu) if instr.type != "LDI" else operand
 
                 #################
-                # check cdb (superscaler broadcasting fix)
-                for instruction in cpu.CDB:
-                    if instruction.type not in {"HALT", "ST", "BEQ", "BNE", "BLT", "BGT", "J", "B"}:
-                        if instruction.operands[0] == operand:
-                            operand_available = instruction.result
+                # check cdb (superscaler broadcasting fix) (if operand isn't available check cdb)
+                if operand_available is False: 
+                    for instruction in cpu.CDB:
+                        print(instruction, instruction.operands[0], operand)
+                        # skip instructions that don't write
+                        if instruction.type not in {"HALT", "ST", "BEQ", "BNE", "BLT", "BGT", "J", "B"}:
+
+                            if instruction.type not in {"STPI", "LDPI"} and instruction.operands[0] == operand:
+                                operand_available = instruction.result
+
+                            # STPI
+                            elif instruction.type in {"STPI", "LDPI"}:
+                                if instruction.base_reg == operand: # if base register is equal to operand reg required take effective address
+                                    operand_available = instruction.effective_address
+
+                            # #LDPI
+                            # elif instruction.type in {"LDPI"}:
+                            #     if instruction.base_reg == operand: # if base register is equal to operand value required take effective address
+                            #         operand_available = instruction.effective_address
+
+                            #     elif instruction.operands[0] == operand: # if resultant register is equal to operand reg take value
+                            #         operand_available = instruction.result
+                #################
 
                 # set value if available
                 if operand[0] == "P" and operand_available is not False:
@@ -146,7 +164,33 @@ class LoadStoreBuffer(ReservationStation):
 
     #override
     def broadcast(self, rob_entry, result):
+        # # updates value entries and tag entries so that results from execution now fill the value entries of awaiting instructions
         return super().broadcast(rob_entry, result, tags=3)
+        # if len(self.stations) == 0:
+        #     return True
+        
+        # for _, row in self.stations.iterrows():
+        #     start = 1
+        #     if row["INSTRs"].type in {"ST", "STPI"}: # operands to be filled are in all spots
+        #         end = 3 + 1
+        #     elif row["INSTRs"].type in {"LD", "LDPI"}: # operands to be filled are in spots 1 and 2
+        #         end = 2 + 1
+        #     else: #LDI skip no broadcasting required
+        #         continue
+            
+        #     for i in range(start, end):                     #HACK SAME ROB ENTRY BUT DIFFERENT REGISTERS, HOW CAN I CHECK?, SIMPLY ADD ANOTHER CONDITION, IF ROB ENTRY MATCHES AND REGISTER
+        #         # if we are broadcasting a base_register we need to make sure that instructions waiting for corresponding rob entry are waiting for the base register and not the LDPI result
+        #         if base_reg is not False:
+                    
+        #         #     if row[f"tag{i}"] == rob_entry and row["INSTRs"].operands[i] == base_reg:
+        #         #         row[f"tag{i}"] = None
+        #         #         row[f"val{i}"] = result
+        #         # else:
+        #         #     if row[f"tag{i}"] == rob_entry:
+        #         #         row[f"tag{i}"] = None
+        #         #         row[f"val{i}"] = result
+
+        # return True
     
     def __pop_row(self, i):
         self.stations = self.stations.T
@@ -177,11 +221,11 @@ class LoadStoreBuffer(ReservationStation):
                 # print(row)
                 
                 # if memory is ready to have effective address calculated
-                if row["INSTRs"].type == "ST" and row["val2"] is not None and row["val3"] is not None and self.non_ooo_check(row, cpu):
+                if row["INSTRs"].type in {"ST", "STPI"} and row["val2"] is not None and row["val3"] is not None and self.non_ooo_check(row, cpu):
                     return self.__pop_row(i)
                     
                 # if load and not earlier stores with same effective address 
-                elif row["INSTRs"].type == "LD" and row["val1"] is not None and row["val2"] is not None:
+                elif row["INSTRs"].type in {"LD", "LDPI"} and row["val1"] is not None and row["val2"] is not None:
                     row["INSTRs"].effective_address = f"MEM{int(row["val1"]) + int(row["val2"])}"
                     result = cpu.rob.mem_disambiguate(row["INSTRs"]) #NOTE loads only get popped if diambiguation is successful
                     #note: this works because it is in order

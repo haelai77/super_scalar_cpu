@@ -63,19 +63,25 @@ class Register_File:
     def get_rob_result(self, reg, cpu):
         """returns result stored in rob"""
         result = cpu.rob.ROB.loc[self.rob_entry(reg)]["result"]
+
         if result is None:
             return False
         else:
             return result
-        # return cpu.rob.ROB.loc[self.rob_entry(reg)]["result"]
     
     ######## retrieve value from register or rob if available in rob
     def get_available_operand(self, reg, cpu):
+        # if values is ready in reservation station use it
         if self.check_ready(reg=reg):
             # returns register value if ready
             return self.get_reg_val(reg=reg)
         
         elif type(self.rob_entry(reg=reg)) == str and cpu.rob.check_done(self.rob_entry(reg=reg)):
+
+            # if (STPI or LDPI) and base_reg == reg
+            if cpu.rob.ROB.loc[self.rob_entry(reg=reg)]["instr"] in {"STPI", "LDPI"} and cpu.rob.ROB.loc[self.rob_entry(reg=reg)]["instr"].base_reg == reg:
+                return cpu.rob.ROB.loc[self.rob_entry(reg=reg)]["instr"].effective_address # the second operand will always be effective address
+                
             # returns rob value if ready
             return self.get_rob_result(reg=reg, cpu=cpu)
         else:

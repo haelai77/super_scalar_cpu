@@ -207,12 +207,18 @@ class Cpu:
                 # print(self.next)
                 # print(self.rat.RAT.to_string)
                 # print("~~~~~~~~~~~ rob")
-                self.print_circular_buffer()
-                print("~~~~~~~~~~~ regs")
-                print(*[f"R{n} : {self.rrat.loc[f"R{n}"]["Phys_reg"]} : {self.PRF.rf.loc[self.rrat.loc[f"R{n}"]["Phys_reg"],"value"]}" for n in range(32) if self.rrat.loc[f"R{n}"]["Phys_reg"] is not None and self.PRF.rf.loc[self.rrat.loc[f"R{n}","Phys_reg"], "ready"] ],
-                      sep="\n")
-                print("~~~~~~~~~~~ mem")
-                print(*self.MEM.mem, sep=" ")
+                # self.print_circular_buffer()
+                # print("~~~~~~~~~~~ regs")
+                # print(*[f"R{n} : {self.rrat.loc[f"R{n}"]["Phys_reg"]} : {self.PRF.rf.loc[self.rrat.loc[f"R{n}"]["Phys_reg"],"value"]}" for n in range(32) if self.rrat.loc[f"R{n}"]["Phys_reg"] is not None and self.PRF.rf.loc[self.rrat.loc[f"R{n}","Phys_reg"], "ready"] ],
+                #       sep="\n")
+                # print("~~~~~~~~~~~ prf")
+                # print(self.PRF.rf.loc[self.rrat.loc[self.rrat["Phys_reg"].apply(lambda reg: reg is not None), "Phys_reg"]])
+                # print(self.PRF.rf[self.PRF.rf["ready"].notnull()])
+                # print("~~~~~~~~~~~ mem")
+                # print(*self.MEM.mem, sep=" ")
+                # print(self.RS["ALU"].stations.to_string())
+                # print(self.RS["LSU"].stations.to_string())
+                # print(self.RS["BRA"].stations.to_string())
 
                 if self.debug:
                     print("## rsb")
@@ -239,8 +245,14 @@ class Cpu:
                     self.pipe.append(self.transition[stage])
                 else:
                     self.pipe.append(self.fetch)
-                print("~~~~~~~~~~~ mem")
-                print(*self.MEM.mem, sep=" ")
+
+                # print("~~~~~~~~~~~ rob")
+                # self.print_circular_buffer()
+                # print("~~~~~~~~~~~ regs")
+                # print(*[f"R{n} : {self.rrat.loc[f"R{n}"]["Phys_reg"]} : {self.PRF.rf.loc[self.rrat.loc[f"R{n}"]["Phys_reg"],"value"]}" for n in range(32) if self.rrat.loc[f"R{n}"]["Phys_reg"] is not None and self.PRF.rf.loc[self.rrat.loc[f"R{n}","Phys_reg"], "ready"] ],
+                #       sep="\n")
+                # print("~~~~~~~~~~~ mem")
+                # print(*self.MEM.mem, sep=" ")
 
                 self.clk_cycles += 1
 
@@ -274,7 +286,7 @@ class Cpu:
         print("bra bypass_count:", self.BRA_byp_counter)
         print("bypass_count:", self.bypass_counter)
         print(F"flush counter: {self.flush_counter}")
-        print(f"acc: {(self.branch_count-self.flush_counter)/self.branch_count}")
+        print(f"acc: {(self.branch_count-self.flush_counter)/self.branch_count if self.branch_count != 0 else None}")
         print(f"super scaling: { self.super_scaling}")
         print(f"ALUs: {len([u for u in self.execute_units if u.RS_type == "ALU"])}")
         print(f"LSU: {len([u for u in self.execute_units if u.RS_type == "LSU"])}")

@@ -27,11 +27,7 @@ class Rat:
         logical_reg = result_reg
         physical_reg = self.freelist.popleft()
 
-        rat_entry = self.RAT.loc[logical_reg]["Phys_reg"]
-
-        # # todo fix this only free on commit
-        # if rat_entry: # phys reg mapping is being overwritten so we add it back into the free list
-        #     self.freelist.append(rat_entry)
+        # rat_entry = self.RAT.loc[logical_reg]["Phys_reg"]
         
         self.RAT.loc[logical_reg]["Phys_reg"] = physical_reg
 

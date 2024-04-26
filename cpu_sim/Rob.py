@@ -20,6 +20,7 @@ class Rob:
         return abs(self.commit_pointer - self.dispatch_pointer)
     
     def check_done(self, rob_entry):
+        rob_entry = rob_entry.split("_")[0]
         return self.ROB.loc[rob_entry]["done"]
     
     def mem_disambiguate(self, load): # 216
@@ -59,10 +60,13 @@ class Rob:
     def writeresult(self, instr, cpu):
         """for writeresult to update result"""
 
-        if instr.type == "ST":
-            done = 0 if not (instr.effective_address is not None and instr.result is not None) else 1
-            # if instr.result not filled then don't attempt to overwrite as this ruins broadcasting
-            if not instr.result:
+        if instr.type in {"ST", "STPI"}:
+            print(f"writting results ~~~~~~~~~~~~~~~~~~ {instr}, {instr.result}, {instr.effective_address}, {(instr.effective_address is not None and instr.result is not None)}")
+            # done = 0 if not (instr.effective_address is not None and instr.result is not None) else 1
+            done = 1 if (instr.effective_address is not None and instr.result is not None) else 0
+            print(f"{instr}, {done}")
+            # if instr.result not filled then don't overwrite rob_entry["result"] with None as we want the phsyical register there so broadcasting can find it 
+            if instr.result is None:
                 fields = ["dst"]
                 vals   = [instr.effective_address]
             else:
@@ -91,7 +95,7 @@ class Rob:
             dst = "END"
             done = 0
 
-            if instruction.type == "ST": # sets result to register so broad cast can find it and replace with value to write to memory
+            if instruction.type in {"ST", "STPI"}: # sets result to register so broad cast can find it and replace with value to write to memory
                 result = instruction.operands[0] 
                 dst = None
             elif instruction.type != "HALT": # avoids setting HALT result
@@ -109,7 +113,7 @@ class Rob:
     
     def __get_type(self, instr):
         if instr is not None:
-            return instr.type == "ST"
+            return instr.type in {"ST", "STPI"}
         else:
             return False
         
@@ -118,7 +122,7 @@ class Rob:
             instr.result = int(result)
     
     def broadcast(self, reg, result):
-        """broad casts to self"""
+        """broadcasts result to stores that are waiting for a result to store"""
         # broadcasting values to be stored to mem for store instructions as store acts as store buffer
         # print("broadcasting")
         # print(reg, result)
@@ -189,17 +193,52 @@ class Rob:
                         cpu.ALU_byp_counter += 1
                 #####################
 
-
+                # rob entry we're about to commit
                 rob_entry = self.ROB.iloc[self.commit_pointer]
-                print(f"Committed: {rob_entry["instr"]} dst:{rob_entry["dst"]} result:{rob_entry["result"]}")            
+                print(f"Committed: {rob_entry["instr"]} dst:{rob_entry["dst"]} result:{rob_entry["result"]}")
+
+
                 # if store write to memory else write to register
-                if rob_entry["instr"].type == "ST":
+                if rob_entry["instr"].type == "ST": 
                     if rob_entry["result"] is not None:
                         cpu.MEM.write(rob_entry["dst"], rob_entry["result"])
                     else:
                         print(f"Can't Commit : {self.ROB.iloc[self.commit_pointer]["instr"]}")
                         break
 
+                elif rob_entry["instr"].type == "STPI":
+                    cpu.MEM.write(rob_entry["dst"], rob_entry["result"])
+                    cpu.PRF.set_reg_val(reg=rob_entry["instr"].base_reg, value=int(rob_entry["instr"].effective_address[3:])) # write effective address to base register
+                    
+                    #handle rat stuff
+                    cpu.r_freelist.remove(rob_entry["instr"].base_reg) # remove incoming physical register mapping from retirement freelist # NOTE not the same as freeing rat mapping
+
+                    if cpu.rrat.loc[rob_entry["instr"].logical_operands[1], "Phys_reg"] is not None: #free up old physical register in retirement mapping
+                        cpu.r_freelist.append(cpu.rrat.loc[rob_entry["instr"].logical_operands[1], "Phys_reg"]) # free physical register that was mapped to logical register (old)
+
+                    # free physical register mapped to R2 
+                    cpu.rat.free(cpu.rrat.loc[rob_entry["instr"].logical_operands[1], "Phys_reg"]) # free old physical register that was just mapped to a logical register that was just recommitted  i.e. can be free because nothing after will use that phys reg
+                    cpu.rrat.loc[rob_entry["instr"].logical_operands[1], "Phys_reg"] = rob_entry["instr"].base_reg # update retirement logical to physical mapping of instr that just committed
+                
+                elif rob_entry["instr"].type == "LDPI":
+                    cpu.PRF.set_reg_val(reg=rob_entry["instr"].base_reg, value=int(rob_entry["instr"].effective_address[3:])) # write effective address to base register
+                    cpu.PRF.set_reg_val(reg=rob_entry["dst"], value=rob_entry["result"])
+
+                    logical_ops = [rob_entry["instr"].logical_operands[0], rob_entry["instr"].logical_operands[1]]
+                    commit_physregs = [rob_entry["dst"], rob_entry["instr"].base_reg]
+
+                    # handle rat stuff
+                    for i in range(2):
+                        cpu.r_freelist.remove(commit_physregs[i]) # remove incoming physical register mapping from retirement freelist # NOTE not the same as freeing rat mapping
+
+                        if cpu.rrat.loc[logical_ops[i], "Phys_reg"] is not None: #free up old physical register in retirement mapping
+                            cpu.r_freelist.append(cpu.rrat.loc[logical_ops[i], "Phys_reg"]) # free physical register that was mapped to logical register (old)
+
+                        # free physical register mapped to R2 
+                        cpu.rat.free(cpu.rrat.loc[logical_ops[i], "Phys_reg"]) # free old physical register that was just mapped to a logical register that was just recommitted  i.e. can be free because nothing after will use that phys reg
+                        cpu.rrat.loc[logical_ops[i], "Phys_reg"] = commit_physregs[i] # update retirement logical to physical mapping of instr that just committed
+
+                # if branch check if flush is needed
                 elif rob_entry["instr"].type in {"BEQ", "BNE", "BLT", "BGT"}:
                     # if speculation is correct continue else flush
                     if cpu.bra_pred and self.flush_check(rob_entry=rob_entry, cpu=cpu):
@@ -208,16 +247,20 @@ class Rob:
                         cpu.flushed = True#todo maybe boost cycles by 10 as flush punishment
                         return True
 
-                elif rob_entry["instr"].type not in {"B", "J", "ST"}: # arithmetic,load, etc instructions
+
+                elif rob_entry["instr"].type not in {"B", "J", "ST", "STPI", "LDPI"}: # arithmetic,load, etc instructions
                     cpu.PRF.set_reg_val(reg=rob_entry["dst"], value=rob_entry["result"])
                     
-                    cpu.r_freelist.remove(rob_entry["dst"]) # remove incoming physical register mapping from retirement freelist
+                    # we remove currently in use physical register from r_freelist. This phys reg stays unfree until logical register is reused then the phys reg can be freed
+                    cpu.r_freelist.remove(rob_entry["dst"]) # remove incoming physical register mapping from retirement freelist # NOTE not the same as freeing rat mapping
 
+                    # we add to retirement free list if mapping exists for Rx to Px i.e. rat mapping only replaced when new instruction commits to it
                     if cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"] is not None:
-                        cpu.r_freelist.append(cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"]) # add old physical register mapping to retirement freelist
+                        cpu.r_freelist.append(cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"]) # free physical register that was mapped to logical register (old)
 
-                    cpu.rat.free(cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"]) # free physical register used by instruction that just committed i.e. look in rrat for logical register and free corresponding physical register
-                    cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"] = rob_entry["dst"] # update rrat
+                    # free physical register that has been freed via new commit to logical register e.g. R1->P1 (P1 not free) R1->P2 commits and P1 can be freed
+                    cpu.rat.free(cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"]) # free old physical register that was just mapped to a logical register that was just recommitted  i.e. can be free because nothing after will use that phys reg
+                    cpu.rrat.loc[rob_entry["instr"].logical_operands[0], "Phys_reg"] = rob_entry["dst"] # update retirement logical to physical mapping of instr that just committed
 
                 # clear rob entry
                 self.ROB.iloc[self.commit_pointer] = {  "instr"    : None,
