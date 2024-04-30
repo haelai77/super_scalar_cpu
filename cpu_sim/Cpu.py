@@ -228,19 +228,19 @@ class Cpu:
 
                 # print(self.next)
                 # print(self.rat.RAT.to_string)
-                print("~~~~~~~~~~~ rob")
-                self.print_circular_buffer()
+                # print("~~~~~~~~~~~ rob")
+                # self.print_circular_buffer()
                 # print("~~~~~~~~~~~ regs")
                 # print(*[f"R{n} : {self.rrat.loc[f"R{n}"]["Phys_reg"]} : {self.PRF.rf.loc[self.rrat.loc[f"R{n}"]["Phys_reg"],"value"]}" for n in range(32) if self.rrat.loc[f"R{n}"]["Phys_reg"] is not None and self.PRF.rf.loc[self.rrat.loc[f"R{n}","Phys_reg"], "ready"] ],
                 #       sep="\n")
-                print("~~~~~~~~~~~ prf")
-                print(self.PRF.rf[self.PRF.rf["ready"].notnull()])
-                print("~~~~~~~~~~~ VRF")
-                self.print_vector_regs()
-                print("~~~~~~~~~~~ mem")
-                print(*self.MEM.mem, sep=" ")
+                # print("~~~~~~~~~~~ prf")
+                # print(self.PRF.rf[self.PRF.rf["ready"].notnull()])
+                # print("~~~~~~~~~~~ VRF")
+                # self.print_vector_regs()
+                # print("~~~~~~~~~~~ mem")
+                # print(*self.MEM.mem, sep=" ")
                 # print(self.RS["ALU"].stations.to_string())
-                print(self.RS["LSU"].stations.to_string())
+                # print(self.RS["LSU"].stations.to_string())
                 # print(self.RS["BRA"].stations.to_string())
 
                 if self.debug:
@@ -322,8 +322,8 @@ class Cpu:
         print(f"dynamic: {self.dynamic}")
         print(f"dyna style: {self.dyna_BRA_style}")
         print(f"file: {self.file}")
-        # print("## BTB")
-        # print(self.BTB.BTB)
+        print("## BTB")
+        print(self.BTB.BTB)
 
 
 # python main.py -pipelined -ooo -rs_bypass -bra_pred -dynamic -super_scaling 4 -n_alu 4 -n_lsu 2 -n_bra 2

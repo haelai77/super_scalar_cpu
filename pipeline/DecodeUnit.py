@@ -5,38 +5,38 @@ import copy
 class DecodeUnit:
     def __init__(self) -> None:
         self.latencies = {
-            "ADD"   : 4,
-            "ADDI"  : 4,
-            "SUB"   : 4,
-            "MUL"   : 4,
-            "DIV"   : 10,
-            "CMP"   : 4,
+            "ADD"   : 2,
+            "ADDI"  : 2,
+            "SUB"   : 2,
+            "MUL"   : 2,
+            "DIV"   : 7,
+            "CMP"   : 2,
 
-            "LD"  : 5,
-            "LDI" : 5,
-            "ST"  : 5,
+            "LD"  : 3,
+            "LDI" : 3,
+            "ST"  : 3,
 
-            "STPI": 5, #
-            "LDPI": 5, #
+            "STPI": 3, #
+            "LDPI": 3, #
 
-            "VLD" : 5,
-            "VST" : 5,
+            "VLD" : 3,
+            "VST" : 3,
 
-            "VLDS" : 5,
-            "VSTS" : 5,
+            "VLDS" : 3,
+            "VSTS" : 3,
 
-            "VADD"  : 5,
-            "VMUL"  : 5,
-            "VSUB"  : 5,
-            "VDIV"  : 14,
-            "VDOT"  : 5,
+            "VADD"  : 3,
+            "VMUL"  : 3,
+            "VSUB"  : 3,
+            "VDIV"  : 8,
+            "VDOT"  : 3,
 
-            "BEQ"   : 4,
-            "BNE"   : 4,
-            "BLT"   : 4,
-            "BGT"   : 4,
-            "J"     : 4,
-            "B"     : 4,
+            "BEQ"   : 2,
+            "BNE"   : 2,
+            "BLT"   : 2,
+            "BGT"   : 2,
+            "J"     : 2,
+            "B"     : 2,
             "HALT"  : 0,
             "NOP"   : 5,}
 

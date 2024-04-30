@@ -1,4 +1,4 @@
-# matrix multiplication (HADAMARD PRODUCT)
+# matrix multiplication (HADAMARD PRODUCT) # unrolled
 # answer = (30,36,42)(66,81,96)(102,126,150)
 
 # set vector length to 3

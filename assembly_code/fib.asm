@@ -1,5 +1,6 @@
 # fib algo = https://www.geeksforgeeks.org/program-for-nth-fibonacci-number/#:~:text=%23%20Function%20for%20nth,0%20and%201
 
+
 # R0 and R1 used for comparison to check end at input
 LDI R1 1
 
@@ -11,8 +12,9 @@ LDI R3 1
 # fib starting value
 LDI R5 2
 
-#>> INPUT <<# fib target n here we pick the 30th fib number
+#>> INPUT <<# fib target n here we pick the 40th fib number
 LDI R6 40
+# 40th fib 102334155 
 #########################
 
 # checks if input is either 0 or 1
