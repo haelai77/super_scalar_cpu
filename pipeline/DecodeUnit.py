@@ -11,11 +11,26 @@ class DecodeUnit:
             "MUL"   : 4,
             "DIV"   : 10,
             "CMP"   : 4,
+
             "LD"  : 5,
             "LDI" : 5,
             "ST"  : 5,
+
             "STPI": 5, #
             "LDPI": 5, #
+
+            "VLD" : 5,
+            "VST" : 5,
+
+            "VLDS" : 5,
+            "VSTS" : 5,
+
+            "VADD"  : 5,
+            "VMUL"  : 5,
+            "VSUB"  : 5,
+            "VDIV"  : 14,
+            "VDOT"  : 5,
+
             "BEQ"   : 4,
             "BNE"   : 4,
             "BLT"   : 4,
@@ -27,7 +42,9 @@ class DecodeUnit:
 
     def rename(self, cpu, instr_type, operands):
         """renames logical registers operands to physical register operands"""
-        if len(operands) > len(cpu.rat.freelist):
+        if instr_type == "LDPI" and len(operands)-1 > len(cpu.rat.freelist):
+            return False, False
+        elif len(operands)-2 > len(cpu.rat.freelist):
             return False, False
 
         base_reg = None
@@ -52,9 +69,37 @@ class DecodeUnit:
                     operand = cpu.rat.check(operand)
                 else:
                     operand = cpu.rat.add(operand)
+            elif operand == "VLR":
+                operand = cpu.rat.add(operand)
 
             renamed_operands[i] = operand
         return renamed_operands, base_reg
+    
+    def v_rename(self, cpu, instr_type, operands):
+        # we only need to rename if VST or VLD
+        if len(operands)-2 > len(cpu.rat.v_freelist):
+            return False, False
+        
+        word_len = operands[0]
+        operands = operands[1:]
+        if instr_type =="VSTS" and len(operands) != 3:
+            raise Exception("missing operand")
+        renamed_operands = [None] * (len(operands)+(instr_type in {"VST", "VSTS", "VLD", "VLDS"})) # +1 because operands present + extra VLR operand + 1
+
+        # iterate backwards through operands
+        for i in range(len(operands)-1, -1, -1):
+            if (instr_type in {"VST", "VSTS"} and i == 0) or i > 0:
+                renamed_operands[i] = cpu.rat.check(operands[i])
+            else:
+                renamed_operands[i] = cpu.rat.add(operands[i])
+
+        if instr_type in {"VST", "VLD", "VSTS", "VLDS"}:
+            renamed_operands[-1] = cpu.rat.check("VLR")
+            if renamed_operands[-1] is None:
+                raise Exception("vector length not set before vector instruction")
+        return (renamed_operands, word_len)
+
+            
 
     # def static_prediction(self, style, target, cpu):
     #     match style:
@@ -145,8 +190,13 @@ class DecodeUnit:
         #     cpu.PC += int(operands[0])
         # elif instr_type == "B":
         #     cpu.PC = int(operands[0])
+        bin_word_size = None
+        base_reg = None
+        if instr_type not in {"VST", "VLD", "VADD", "VSUB", "VDIV", "VMUL", "VSTS", "VLDS", "VDOT"}:
+            renamed_operands, base_reg = self.rename(instr_type=instr_type, operands=operands, cpu=cpu)
+        else:
+            renamed_operands, bin_word_size = self.v_rename(cpu=cpu, instr_type=instr_type, operands=operands)
 
-        renamed_operands, base_reg = self.rename(instr_type=instr_type, operands=operands, cpu=cpu)
 
         if renamed_operands is False:
             print(" >>>No free physical registers stalling<<<")
@@ -156,10 +206,14 @@ class DecodeUnit:
         renamed_operands = np.asarray(renamed_operands) # convert to numpy array
         instruction = Instruction(type=instr_type, operands=renamed_operands, cycle_latency=self.latencies[instr_type]) # create instruction object
         instruction.pc = pc
-        instruction.logical_operands = operands
+        instruction.logical_operands = operands if instr_type[0] != "V" else operands[1:] # if vector skip first operand as it isn't actually an operand but a int bit word size
 
         if base_reg is not None:
             instruction.base_reg = base_reg
+        
+        if bin_word_size is not None:
+            instruction.bitpack_size = int(bin_word_size)
+        
 
         cpu.INSTR_BUFF.popleft()
         cpu.IQ.append(instruction) # replace instruction with decoded instruction

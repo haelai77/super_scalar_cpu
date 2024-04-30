@@ -1,0 +1,25 @@
+LDI R1 1
+LDI R2 2
+LDI R3 3
+
+# vector length 3
+LDI VLR 3
+
+ST R1 R0 R0
+ST R2 R1 R0
+ST R3 R2 R0
+
+# start and end 
+LDI R4 0
+LDI R5 4
+
+VLD.16 V1 R0
+
+LOOP:
+    VADD.16 V1 V1 V1
+    ADDI R4 R4 1
+    BNE R4 R5 LOOP
+
+END:
+    VST.16 V1 R0
+    HALT

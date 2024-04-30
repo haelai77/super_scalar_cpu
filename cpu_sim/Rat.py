@@ -5,8 +5,9 @@ class Rat:
     def __init__(self, cpu) -> None:
         self.cpu = cpu
         self.freelist = deque([f"P{n}" for n in range(1, len(cpu.PRF))]) # free physical registers by index ["P0", "P1", ...]
-        self.RAT = DataFrame({"Phys_reg" : [None] * 32})
-        self.RAT.index = [f"R{n}" for n in range(32)]
+        self.v_freelist = deque([f"V{n}" for n in range(1, len(cpu.VRF))]) # free physical registers by index ["P0", "P1", ...]
+        self.RAT = DataFrame({"Phys_reg" : [None] * 49})
+        self.RAT.index = [*[f"R{n}" for n in range(32)], "VLR", *[f"V{n}" for n in range(16)]]
 
         self.RAT.iloc[0] = "P0"
 
@@ -25,7 +26,8 @@ class Rat:
     def add(self, result_reg):
         """adds mapping from logical register to physical register"""
         logical_reg = result_reg
-        physical_reg = self.freelist.popleft()
+
+        physical_reg = self.freelist.popleft() if (logical_reg[0] != "V" or logical_reg == "VLR") else self.v_freelist.popleft()
 
         # rat_entry = self.RAT.loc[logical_reg]["Phys_reg"]
         

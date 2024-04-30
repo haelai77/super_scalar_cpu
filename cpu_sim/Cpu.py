@@ -61,17 +61,23 @@ class Cpu:
 
         # registers and memory
         self.MEM: Memory = Memory()
-        self.PRF: Register_File = Register_File(num_regs = 64) # architectural register file
+        self.PRF: Register_File = Register_File(num_regs = 64) # physical register file
         self.INSTR_CACHE = instr_cache # from assembler
         self.INSTR_BUFF = deque(maxlen = super_scaling) # instruction queue for speculative fetch and decode / stage between fetch and decode
         self.IQ         = deque(maxlen = 128) # instruction queue / stage between decode and issue
+
+        ########## vector stuff
+        #NOTE we will just have 16 bit integer elements
+        self.VRF:Register_File = Register_File(num_regs=32, reg_type="V")
+        #################
         
         #addons
         self.rob = Rob(size=64) # 128 entries
         self.rat = Rat(cpu=self) # frontend rat holds possible speculative state of the machine
         self.rrat = self.rat.RAT.copy(deep=True) # retirement rat for knowing which physical register to free
         self.r_freelist = self.rat.freelist.copy()
-        self.rat_snap = deque([]) # snapshot queue for branches
+        self.vr_freelist = self.rat.v_freelist.copy()
+
         # branching
         self.static_BRA_style = stat_style
         self.dyna_BRA_style = dyna_style
@@ -95,11 +101,18 @@ class Cpu:
             self.writeresult : self.commit
         }
 
+    def vector_saftey_check(self, v_instr, VLR):
+        MVL = 64/v_instr.bitpack_size
+        print(VLR)
+        if MVL < int(VLR):
+            raise Exception("Vector Length exceeds maximum vector size i.e. bits per element * vector length > register size")
+
     ### pipeline functions ###
     def flush(self):
         self.flush_counter += 1
         self.rat.RAT = self.rrat.copy(deep=True)
         self.rat.freelist = self.r_freelist.copy()
+        self.rat.v_freelist = self.vr_freelist.copy()
         self.PC = self.RSB.popleft()
         self.next = deque([])
         self.RSB = deque()
@@ -166,6 +179,15 @@ class Cpu:
 
         print(pd.DataFrame(buffer).replace({np.nan:None}))
 
+    def splitbin_wrapper(self, bin):
+        return self.rob.splitbin(binary=bin, instruction=16, conv_int=True, t=True)
+
+    def print_vector_regs(self):
+        # vrf_copy = self.VRF.rf.copy().dropna(subset=["value"])
+        # vrf_copy["value"] = vrf_copy["value"].apply(self.splitbin_wrapper)
+        print(*[f"V{n} : {self.splitbin_wrapper(self.VRF.rf.loc[self.rrat.loc[f"V{n}"]["Phys_reg"],"value"])}" for n in range(16) if self.rrat.loc[f"V{n}"]["Phys_reg"] is not None and self.VRF.rf.loc[self.rrat.loc[f"V{n}","Phys_reg"], "ready"] ],
+              sep="\n")
+
     def run(self, debug, step_toggle = False):
         '''runs the cpu simulation'''
         self.debug = debug
@@ -206,18 +228,19 @@ class Cpu:
 
                 # print(self.next)
                 # print(self.rat.RAT.to_string)
-                # print("~~~~~~~~~~~ rob")
-                # self.print_circular_buffer()
+                print("~~~~~~~~~~~ rob")
+                self.print_circular_buffer()
                 # print("~~~~~~~~~~~ regs")
                 # print(*[f"R{n} : {self.rrat.loc[f"R{n}"]["Phys_reg"]} : {self.PRF.rf.loc[self.rrat.loc[f"R{n}"]["Phys_reg"],"value"]}" for n in range(32) if self.rrat.loc[f"R{n}"]["Phys_reg"] is not None and self.PRF.rf.loc[self.rrat.loc[f"R{n}","Phys_reg"], "ready"] ],
                 #       sep="\n")
-                # print("~~~~~~~~~~~ prf")
-                # print(self.PRF.rf.loc[self.rrat.loc[self.rrat["Phys_reg"].apply(lambda reg: reg is not None), "Phys_reg"]])
-                # print(self.PRF.rf[self.PRF.rf["ready"].notnull()])
-                # print("~~~~~~~~~~~ mem")
-                # print(*self.MEM.mem, sep=" ")
+                print("~~~~~~~~~~~ prf")
+                print(self.PRF.rf[self.PRF.rf["ready"].notnull()])
+                print("~~~~~~~~~~~ VRF")
+                self.print_vector_regs()
+                print("~~~~~~~~~~~ mem")
+                print(*self.MEM.mem, sep=" ")
                 # print(self.RS["ALU"].stations.to_string())
-                # print(self.RS["LSU"].stations.to_string())
+                print(self.RS["LSU"].stations.to_string())
                 # print(self.RS["BRA"].stations.to_string())
 
                 if self.debug:
@@ -273,9 +296,13 @@ class Cpu:
         print(*[f"R{n}:{self.PRF.get_reg_val(self.rat.check(f"R{n}"))}" for n in range(32) if self.rat.check(f"R{n}")])
         # print("##################### PREGS #####################")
         # print(*self.PRF.rf["value"], sep=" ")
+        print("##################### VREGS #####################")
+        self.print_vector_regs()
         print("##################### MEM #######################")
         print(*self.MEM.mem, sep=" ")
         print("#################################################")
+        # print(self.rob.splitbin(binary=str(self.VRF.rf.loc[self.rat.check("V1"), "value"]), instruction=None, t=True, conv_int=False))
+        # print(self.rob.splitbin(binary=str(self.VRF.rf.loc[self.rat.check("V1"), "value"]), instruction=None, t=True, conv_int=True))
 
         print("Cycles:", self.clk_cycles)
         print("Instrs:", self.instructions)

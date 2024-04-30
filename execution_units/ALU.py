@@ -18,6 +18,12 @@ class ALU:
             "MUL"   : self.MUL,
             "DIV"   : self.DIV,
 
+            "VADD"  : self.VADD,
+            "VMUL"  : self.VMUL,
+            "VSUB"  : self.VSUB,
+            "VDIV"  : self.VDIV,
+            "VDOT"  : self.VDOT,
+
             "CMP"   : self.CMP,
 
             "HALT"  : self.HALT,
@@ -52,6 +58,8 @@ class ALU:
         if self.instr["INSTRs"].type == "HALT":
             instruction = self.exe[instr_type](cpu)
             return True
+        elif self.instr["INSTRs"].type in {"VADD", "VSUB", "VMUL", "VDIV", "VDOT"}:
+            instruction = self.exe[instr_type](cpu)
         else:
             instruction = self.exe[instr_type]()
 
@@ -61,13 +69,18 @@ class ALU:
         
         ##################
         # broadcast results to reservation stations 
+        vec = True if instruction.type[0] == "V" else False
+        
         if instruction.type not in {"HALT", "ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "NOP"}:
             
             for rs_type in ["ALU", "LSU", "BRA"]:
-                cpu.RS[rs_type].broadcast(result=instruction.result, rob_entry=cpu.PRF.rob_entry(instruction.operands[0]))
+                if instruction.type[0] == "V":
+                    cpu.RS[rs_type].broadcast(result=instruction.result, rob_entry=cpu.VRF.rob_entry(instruction.operands[0]), v=True)
+                else:
+                    cpu.RS[rs_type].broadcast(result=instruction.result, rob_entry=cpu.PRF.rob_entry(instruction.operands[0]))
                 
             # broadcast result to possible awaiting stores
-            cpu.rob.broadcast(result=instruction.result, reg=instruction.operands[0]) # operand zero is dst reg
+            cpu.rob.broadcast(result=instruction.result, reg=instruction.operands[0], vec=vec) # operand zero is dst reg
         ##################
 
         self.instr = None
@@ -116,7 +129,7 @@ class ALU:
             3. r1 == r2 =  0'''
         instruction  = self.instr["INSTRs"]
 
-        if int(self.nstr["val1"]) < int(self.instr["val2"]):
+        if int(self.instr["val1"]) < int(self.instr["val2"]):
             result = -1
         elif int(self.instr["val1"]) > int(self.instr["val2"]):
             result = 1
@@ -124,6 +137,61 @@ class ALU:
             result = 0
         
         instruction.result = result
+        return instruction
+    
+    def VADD(self, cpu):
+        # read in vectors and split into chuncks based on int bit word size
+        instruction  = self.instr["INSTRs"]
+        vector1 = cpu.rob.splitbin(binary=self.instr["val1"], instruction=instruction, conv_int=True)
+        vector2 = cpu.rob.splitbin(binary=self.instr["val2"], instruction=instruction, conv_int=True)
+        summed = list(map(sum, zip(vector1, vector2)))
+        instruction.result = ("".join([bin(integer)[2:].zfill(instruction.bitpack_size) for integer in summed])).zfill(64)
+
+        return instruction
+
+    def VSUB(self, cpu):
+        instruction  = self.instr["INSTRs"]
+        vector1 = cpu.rob.splitbin(binary=self.instr["val1"], instruction=instruction, conv_int=True)
+        vector2 = cpu.rob.splitbin(binary=self.instr["val2"], instruction=instruction, conv_int=True)
+        summed = list(map(lambda tup: tup[0] - tup[1], zip(vector1, vector2)))
+        instruction.result = ("".join([bin(integer)[2:].zfill(instruction.bitpack_size) for integer in summed])).zfill(64)
+
+        return instruction
+
+    def VMUL(self, cpu):
+        instruction  = self.instr["INSTRs"]
+        vector1 = cpu.rob.splitbin(binary=self.instr["val1"], instruction=instruction, conv_int=True)
+        vector2 = cpu.rob.splitbin(binary=self.instr["val2"], instruction=instruction, conv_int=True)
+        summed = list(map(lambda tup: tup[0] * tup[1], zip(vector1, vector2)))
+        instruction.result = ("".join([bin(integer)[2:].zfill(instruction.bitpack_size) for integer in summed])).zfill(64)
+
+        return instruction
+
+    def VDIV(self, cpu):
+        instruction  = self.instr["INSTRs"]
+        vector1 = cpu.rob.splitbin(binary=self.instr["val1"], instruction=instruction, conv_int=True)
+        vector2 = cpu.rob.splitbin(binary=self.instr["val2"], instruction=instruction, conv_int=True)
+        zipped = zip(vector1, vector2)
+        summed = []
+
+        for a,b in zipped:
+            if a == 0 or b == 0:
+                summed.append(0)
+            else:
+                summed.append(a//b)
+        # summed = list(map(lambda tup: tup[0] // tup[1], zip(vector1, vector2)))
+        instruction.result = ("".join([bin(integer)[2:].zfill(instruction.bitpack_size) for integer in summed])).zfill(64)
+
+        return instruction
+    
+    def VDOT(self, cpu):
+        instruction  = self.instr["INSTRs"]
+        instruction.vend = instruction.vstart # Because when we sum up it all turns into 1 element
+        vector1 = cpu.rob.splitbin(binary=self.instr["val1"], instruction=instruction, conv_int=True)
+        vector2 = cpu.rob.splitbin(binary=self.instr["val2"], instruction=instruction, conv_int=True)
+        summed = sum(list(map(lambda tup: tup[0] * tup[1], zip(vector1, vector2))))
+        instruction.result = bin(summed)[2:].zfill(64)
+
         return instruction
     
     def HALT(self, cpu):

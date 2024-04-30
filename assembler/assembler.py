@@ -11,8 +11,10 @@ def asm_to_machine(assembly):
         if '#' in line:
             blank_lines += 1
             continue # skip comments
-
+        
+        line = line.replace(".", " ") # replace full stops with space for instruction word lengths
         instr = line.split() # split line into strings by whitespace
+
 
         if len(instr) == 1 and ":" in instr[0]: # if label is encountered
             branch_lines[str(instr[0][:-1])] = (index-1-label_offset-blank_lines, f"on line: {index+1}")

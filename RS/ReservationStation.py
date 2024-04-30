@@ -34,13 +34,16 @@ class ReservationStation:
             # if we're buffering an instruction that isn't writing anything we want to read all operands if they are registers
             operands = instr.operands if instr.type in {"BEQ", "BNE", "BLT", "BGT", "J", "B"} else instr.operands[1:]
             for i, operand in enumerate(operands):
-                operand_available = cpu.PRF.get_available_operand(reg=operand, cpu=cpu) if operand[0] == "P" else operand
+                if instr.type in {"VADD", "VSUB", "VMUL", "VDIV", "VDOT"}:
+                    operand_available = cpu.VRF.get_available_operand(reg=operand, cpu=cpu)
+                else:
+                    operand_available = cpu.PRF.get_available_operand(reg=operand, cpu=cpu) if operand[0] == "P" else operand
                 
                 #################
                 if operand_available is False: 
                     for instruction in cpu.CDB:
                         # skip instructions that don't write
-                        if instruction.type not in {"HALT", "ST", "BEQ", "BNE", "BLT", "BGT", "J", "B"}:
+                        if instruction.type not in {"HALT", "ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "VST"}:
 
                             if instr.type not in {"STPI", "LDPI"} and instruction.operands[0] == operand:
                                 operand_available = instruction.result
@@ -61,12 +64,16 @@ class ReservationStation:
                 #################
 
                 # set value if available
-                if operand[0] == "P" and operand_available is not False:
+                if operand[0] in {"P", "V"} and operand_available is not False:
                     vals[i] = int(operand_available)
 
                 # set rob tag if value not available in register file or rob
                 elif operand[0] == "P" and operand_available is False:
                     tags[i] = cpu.PRF.rob_entry(reg=operand)
+                
+                elif operand[0] == "V" and operand_available is False:
+                    print(operands)
+                    tags[i] = cpu.VRF.rob_entry(reg=operand) 
 
                 # must be an immediate i.e. for ADDI, B or J
                 else:
@@ -130,15 +137,15 @@ class ReservationStation:
                                            "val2"      ,    # value from rob
                                            "immediate" ])    # holds immediate and resolved addresses
     
-    def broadcast(self, rob_entry, result, tags=2):
+    def broadcast(self, rob_entry, result, tags=2, v = False):
         """broadcasts rob result to awaiting instructions in reservation station entries"""
         # updates value entries and tag entries so that results from execution now fill the value entries of awaiting instructions
         if len(self.stations) == 0:
             return True
-        # print(f"broadcasting:{result} -> {rob_entry}")
         for i in range(1, tags+1): 
-            self.stations.loc[ self.stations[f"tag{i}"].astype(str) == rob_entry,    f"val{i}"] = int(result)
+            self.stations.loc[ self.stations[f"tag{i}"].astype(str) == rob_entry,    f"val{i}"] = int(result) if not v else result
             self.stations.loc[ self.stations[f"tag{i}"].astype(str) == rob_entry,    f"tag{i}"] = None
+                
         return True
     
     def __pop_row(self, index):

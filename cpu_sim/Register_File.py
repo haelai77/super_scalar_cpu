@@ -4,21 +4,24 @@ from pandas import DataFrame
 
 
 class Register_File:
-    def __init__(self, num_regs = 64) -> None:
+    def __init__(self, num_regs = 64, reg_type="P") -> None:
+        self.t = reg_type
         self.num_regs = num_regs
 
-        self.rf = DataFrame({"value"      : [0] * num_regs,
+        self.rf = DataFrame({"value"      : [None] * num_regs,
                              "ready"      : [None] * num_regs,
                              "rob_entry"  : [None] * num_regs})
-        self.rf.index = [f"P{n}" for n in range(num_regs)]
+        self.rf.index = [f"{reg_type}{n}" for n in range(num_regs)]
         
         # keep RO and PO 
-        self.rf.loc["P0"] = {"value"     : 0,
-                             "ready"     : True,
-                             "rob_entry" : None}
+        if reg_type == "P":
+            self.rf.loc["P0"] = {"value"     : 0,
+                                "ready"     : True,
+                                "rob_entry" : None}
         
     def __len__(self):
         return self.num_regs
+
     #### ready bit setters and checkers ####
     def set_ready(self, reg):
         """sets physical register able to be read from"""
@@ -42,7 +45,7 @@ class Register_File:
         """sets a value in the register"""
         self.set_rob_entry(reg=reg, rob_entry=None)
         self.set_ready(reg=reg)
-        self.rf.loc[reg, "value"] = int(value)
+        self.rf.loc[reg, "value"] = int(value) if self.t == "P" else value
         return True
 
     ##### rob getters and setters #####

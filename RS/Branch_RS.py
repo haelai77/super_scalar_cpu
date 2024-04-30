@@ -17,7 +17,7 @@ class Branch_RS(ReservationStation):
    
         return entry
 
-    def broadcast(self, rob_entry, result):
+    def broadcast(self, rob_entry, result, v = False):
         return super().broadcast(rob_entry, result, tags=2)
     
     def flush(self):

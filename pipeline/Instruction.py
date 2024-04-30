@@ -15,6 +15,13 @@ class Instruction:
         self.pc = None
         ## phys reg location for STPI and LDPI after R2 gets read and also added to rat
         self.base_reg = None
+
+        # vector stuff
+        self.vstart = None
+        self.vend = None
+        self.bitpack_size = 16
+        self.v_forwarding = None
+        self.stride_size = None
         ###############################################
 
     def __repr__(self):
@@ -23,5 +30,5 @@ class Instruction:
         if self.type in {"STPI", "LDPI"}:
             s = [*list(self.operands), self.base_reg]
             # print(s)
-            return f"{self.type}_{s}"
+            return f"{self.type}_{self.operands}_{self.base_reg}"
         return f"{self.type}_{self.operands}_{self.result}"

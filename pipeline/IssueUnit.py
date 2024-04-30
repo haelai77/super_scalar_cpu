@@ -14,37 +14,40 @@ class IssueUnit:
                 return False
 
             if bypassed:
-                # input("")
-                # cpu.bypass_counter += 1
                 # remove instruction from instruction queue if managed to bypass successfully
                 cpu.IQ.popleft()
 
                 instr.bypassed_flag = True
+
                 #add entry to rob
                 rob_entry = cpu.rob.add(instr)
 
                 # if you are writing to a regsiter you need to set ready bit in PRF/scordboard to false
-                if instr.type not in {"ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "HALT", "NOP"}: 
+                if instr.type not in {"ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "HALT", "NOP", "STPI", "VST", "VLD", "VADD", "VSUB", "VDIV", "VMUL", "VSTS", "VLDS", "VDOT"}: 
                     cpu.PRF.set_unready(reg=instr.operands[0])
 
                     # set corresponding rob entry that will write to physical register
                     cpu.PRF.set_rob_entry(reg=instr.operands[0], rob_entry=rob_entry)
+
+                elif instr.type in {"STPI", "LDPI"}: # different rob entry for base pointer
+                    cpu.PRF.set_unready(reg=instr.base_reg) # set second register we're writing to as unready
+                    cpu.PRF.set_rob_entry(reg=instr.base_reg, rob_entry=rob_entry+"_base") # set rob entry
+                elif instr.type in {"VLD", "VADD", "VSUB", "VDIV", "VMUL", "VSTS", "VLDS", "VDOT"}:
+                    cpu.VRF.set_unready(reg=instr.operands[0])
+                    cpu.VRF.set_rob_entry(reg=instr.operands[0], rob_entry=rob_entry)
+                
                 print("Issued (BYPASS): ", instr)
                 return True
         return False
 
     def issue(self, cpu):
-        print(cpu.CDB)
         if len(cpu.IQ):
-            # for _ in range(cpu.super_scaling):
-            #     if len(cpu.IQ) == 0:
-            #         break
             
             instr = cpu.IQ[0]
 
             RS_type = "ALU" 
 
-            if instr.type in {"ST", "LD", "LDI", "STPI", "LDPI"}: # Reservation station type is LSU
+            if instr.type in {"ST", "LD", "LDI", "STPI", "LDPI", "VST", "VLD", "VSTS", "VLDS"}: # Reservation station type is LSU
                 RS_type = "LSU"
 
             elif instr.type in {"BEQ", "BNE", "BLT", "BGT", "J", "B"}:
@@ -58,33 +61,36 @@ class IssueUnit:
             #doesn't bypass if rob and rs full but should be able to if execution unit 
             # check for structural hazards
             if cpu.rob.available() and cpu.RS[RS_type].available():
-                # print(cpu.IQ)
                 instr = cpu.IQ.popleft()
                 
                 # allocation instruction into rob
                 rob_entry = cpu.rob.add(instr)
 
                 # if you are writing to a regsiter you need to set ready bit in PRF/scordboard to false
-                if instr.type not in {"ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "HALT", "NOP", "STPI"}: 
+                if instr.type not in {"ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "HALT", "NOP", "STPI", "VST", "VLD", "VADD", "VSUB", "VDIV", "VMUL", "VSTS", "VLDS", "VDOT"}: 
                     # set bit unready
                     # if instr.type == "ADDI" and instr.operands[0] == "P9":
-                    #     input(f"{instr.operands[0]}")
                     cpu.PRF.set_unready(reg=instr.operands[0])
 
                     # set corresponding rob entry that will write to physical register
                     cpu.PRF.set_rob_entry(reg=instr.operands[0], rob_entry=rob_entry)
-                    #######################
-                    #NOTE special case for STPI AND LDPI
+                #######################
+                #NOTE special case for STPI AND LDPI
                 if instr.type in {"STPI", "LDPI"}: # different rob entry for base pointer
                     cpu.PRF.set_unready(reg=instr.base_reg) # set second register we're writing to as unready
                     cpu.PRF.set_rob_entry(reg=instr.base_reg, rob_entry=rob_entry+"_base") # set rob entry
+                #######################
+                #NOTE special case for vector isntructions
+                if instr.type in {"VLD", "VADD", "VSUB", "VDIV", "VMUL", "VLDS", "VDOT"}:
+                    cpu.VRF.set_unready(reg=instr.operands[0])
+                    cpu.VRF.set_rob_entry(reg=instr.operands[0], rob_entry=rob_entry)
+
                 print(instr)
                 cpu.RS[RS_type].add(instr, cpu, bypass_on=False)
                 
                 print(f"Issued: {instr} to RS_{RS_type}")
             else:
                 print(f"Issued: structural hazard >> rob:{cpu.rob.available()} >> RS:{RS_type}_{cpu.RS[RS_type].available()}")
-                # print(cpu.RS[RS_type].stations.to_string())
                 return False
         else:
             print(f"Issued: []")

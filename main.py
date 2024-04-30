@@ -59,3 +59,4 @@ cpu = Cpu(instr_cache, fetch_unit, decode_unit, dispatch_unit, issue_unit, execu
 
 
 cpu.run(debug=args.debug, step_toggle=args.step)
+# python main.py -n_lsu 3 -ooo -rs_bypass -pipelined -f vector_branch_test.asm -super_scaling 3 -step 0 -bra_pred -dynamic
