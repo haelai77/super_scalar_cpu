@@ -1,0 +1,3 @@
+LDI R1 1
+STI 5 R1 R0
+HALT

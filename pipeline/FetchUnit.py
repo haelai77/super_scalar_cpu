@@ -57,8 +57,6 @@ class FetchUnit:
 
             # static prediction
             else:
-                # print(curr_instr, cpu.PC)
-                # input(f"{int(curr_instr[1][2])}, {cpu.PC}, {int(curr_instr[1][2]) < cpu.PC}")
 
                 taken_state = self.static_prediction(style=cpu.static_BRA_style, target=int(curr_instr[1][2]), cpu=cpu)
                 # if taken, buffer rollback to not taken path

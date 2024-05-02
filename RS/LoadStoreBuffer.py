@@ -23,7 +23,7 @@ class LoadStoreBuffer(ReservationStation):
         self.busy = False
 
     def bypass_helper(self, cpu, execution_unit, row, eu_type):
-        if execution_unit.AVAILABLE and execution_unit.RS_type == eu_type:
+        if execution_unit.AVAILABLE and execution_unit.RS_type == eu_type and self.non_ooo_check(row, cpu):
             execution_unit.instr = row
             execution_unit.AVAILABLE = False
             execution_unit.cycle_latency = execution_unit.instr["INSTRs"].cycle_latency
@@ -46,14 +46,15 @@ class LoadStoreBuffer(ReservationStation):
                 if (instr.type in {"VST", "VSTS"} and i == 0):
                     operand_available = cpu.VRF.get_available_operand(reg=operand, cpu=cpu)
                 else:
-                    operand_available = cpu.PRF.get_available_operand(reg=operand, cpu=cpu) if instr.type != "LDI" else operand
+                    operand_available = cpu.PRF.get_available_operand(reg=operand, cpu=cpu) if not ((instr.type == "LDI") or (instr.type == "STI" and i == 0)) else operand
+                    print(f"lsb Here{operand_available}") 
 
                 #################
                 # check cdb (superscaler broadcasting fix) (if operand isn't available check cdb)
                 if operand_available is False: 
                     for instruction in cpu.CDB:
                         # skip instructions that don't write
-                        if instruction.type not in {"HALT", "ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "VST", "VSTS"}:
+                        if instruction.type not in {"HALT", "ST", "STI", "BEQ", "BNE", "BLT", "BGT", "J", "B", "VST", "VSTS"}:
 
                             if instruction.type not in {"STPI", "LDPI"} and instruction.operands[0] == operand:
                                 operand_available = instruction.result
@@ -114,9 +115,11 @@ class LoadStoreBuffer(ReservationStation):
                         "immediate" : immediate})
             
                 # if memory is ready to have effective address calculated
-                if (row["INSTRs"].type in {"ST", "STPI"} and row["val2"] is not None and row["val3"] is not None and self.non_ooo_check(row, cpu) or
-                    row["INSTRs"].type == "LDI" and row["immediate"] is not None and self.non_ooo_check(row, cpu)):
+                if (row["INSTRs"].type in {"ST", "STPI"} and row["val2"] is not None and row["val3"] is not None or
+                    row["INSTRs"].type == "LDI" and row["immediate"] is not None or
+                    row["INSTRs"].type == "STI" and row["val2"] is not None and row["val3"] is not None and row["immediate"] is not None):
                     for execution_unit in cpu.execute_units:
+                        
                         if self.bypass_helper(cpu=cpu, execution_unit=execution_unit, row=row, eu_type=eu_type):
                             bypassed = True
                             break
@@ -142,6 +145,8 @@ class LoadStoreBuffer(ReservationStation):
                                 bypassed = True
                                 break
                         return bypassed
+                    else:
+                        return False
                 
                 elif row["INSTRs"].type in {"VLD"} and row["val1"] is not None and row["val2"] is not None:
                     cpu.vector_saftey_check(v_instr=row["INSTRs"], VLR=row["val2"])
@@ -152,7 +157,7 @@ class LoadStoreBuffer(ReservationStation):
                     v_forwarding = cpu.rob.v_mem_disambiguate(row["INSTRs"], vstart=row["val1"], vend=row["INSTRs"].vend)
                     if v_forwarding:
                         for execution_unit in cpu.execute_units:
-                            if execution_unit.AVAILABLE and execution_unit.RS_type == eu_type:
+                            if execution_unit.AVAILABLE and execution_unit.RS_type == eu_type and self.non_ooo_check(row, cpu):
                                 row["INSTRs"].v_forwarding = v_forwarding # note these aren't actually the complete results, just dependecies found that contribute to the resultant binary
                                 execution_unit.instr = row
                                 execution_unit.AVAILABLE = False
@@ -182,11 +187,11 @@ class LoadStoreBuffer(ReservationStation):
                             break
                     return bypassed
                 
-                elif row["INSTRs"].type in {"VLDS"} and row["val1"] is not None and row["val2"] is not None and row["val3"] is not None:
+                elif row["INSTRs"].type in {"VLDS"} and row["val1"] is not None and row["val2"] is not None and row["val3"] is not None and self.non_ooo_check(row, cpu):
                     # result, start, stride, vlr
                     cpu.vector_saftey_check(v_instr=row["INSTRs"], VLR=row["val3"])
 
-                    v_forwarding = cpu.rob.v_mem_disambiguate(row["INSTRs"], vstart=row["val1"], vend=row["INSTRs"].vend, stride_size=row["val3"])
+                    v_forwarding = cpu.rob.vs_mem_disambiguate(row["INSTRs"], vstart=row["val1"], vend=row["INSTRs"].vend, stride_size=row["val3"])
                     row["INSTRs"].vstart = int(row["val1"])
                     row["INSTRs"].vend = int(row["val1"]) + int(row["val3"]) - 1
                     if v_forwarding:
@@ -198,8 +203,8 @@ class LoadStoreBuffer(ReservationStation):
                                 execution_unit.cycle_latency = execution_unit.instr["INSTRs"].cycle_latency
                                 bypassed = True
                                 break
-
-
+                    return bypassed
+                else:
                     return False
     
             #######################################
@@ -279,8 +284,7 @@ class LoadStoreBuffer(ReservationStation):
         self.stations = self.stations.replace({np.nan:None}) # NOTE JIC pandas decides to do some ultra annoying casting, sorry I decided to put multiple datatypes into ur pd.Series sakdjflakdsjflkasdjflkas
         return True
 
-    
-    
+
     def __pop_row(self, i):
         self.stations = self.stations.T
         entry = self.stations.pop(i)
@@ -290,7 +294,7 @@ class LoadStoreBuffer(ReservationStation):
     
     def non_ooo_check(self, row, cpu):
         if not cpu.ooo:
-            if row["INSTRs"].pc == cpu.next[0]:
+            if row["INSTRs"].pc == cpu.next[0] and (all(execution_unit.AVAILABLE for execution_unit in cpu.execute_units)):
                 cpu.next.popleft()
                 return True
             else:
@@ -301,39 +305,45 @@ class LoadStoreBuffer(ReservationStation):
     #override 
     def pop(self, cpu):
         """pops first instruction out of the reservation station if ready (can be LD, LDI or ST)"""
-        length = len(self.stations) if cpu.ooo else 1
+        length = len(self.stations)
         if len(self.stations):
             for i in range(length):
-
+                
                 row = self.stations.iloc[i].copy() # todo test if this can go out of order
                 # if memory is ready to have effective address calculated
-                # val1 and val2 are base and offsetj
+                # val1 and val2 are base and offset
+                
                 if row["INSTRs"].type in {"ST", "STPI"} and row["val2"] is not None and row["val3"] is not None and self.non_ooo_check(row, cpu):
                     return self.__pop_row(i)
-                    
+                #############
+                elif row["INSTRs"].type == "STI" and row["val2"] is not None and row["val3"] is not None and int(row["immediate"]) is not None and self.non_ooo_check(row, cpu):
+                    return self.__pop_row(i)
                 #############
                 # if load and not earlier stores with same effective address 
-                elif row["INSTRs"].type in {"LD", "LDPI"} and row["val1"] is not None and row["val2"] is not None:
+                elif row["INSTRs"].type in {"LD", "LDPI"} and row["val1"] is not None and row["val2"] is not None and self.non_ooo_check(row, cpu):
                     row["INSTRs"].effective_address = f"MEM{int(row["val1"]) + int(row["val2"])}"
                     result = cpu.rob.mem_disambiguate(row["INSTRs"]) #NOTE loads only get popped if diambiguation is successful
                     
                     # return load with result from earlier store filled if possible 
-                    if type(result) is int and self.non_ooo_check(row, cpu):
+                    if type(result) is int:
+                        
                         row["INSTRs"].result = result
                         return self.__pop_row(i)
                     
                     # else return with result not filled but can read memory without >dependency<
-                    elif result is True and self.non_ooo_check(row, cpu):
+                    elif result is True:
+                        
                         return self.__pop_row(i)
                     else: # case may activate if eariler store is still being processed
+                        
                         print(f">>>{row["INSTRs"]} not ready<<<")
                         return False
                     
                 #############
-                elif row["INSTRs"].type == "LDI" and row["immediate"] is not None and self.non_ooo_check(row, cpu):
+                elif row["INSTRs"].type == "LDI" and int(row["immediate"]) is not None and self.non_ooo_check(row, cpu):
                     return self.__pop_row(i)
                 #############
-                elif row["INSTRs"].type in {"VLD"} and row["val1"] is not None and row["val2"] is not None:
+                elif row["INSTRs"].type in {"VLD"} and row["val1"] is not None and row["val2"] is not None and self.non_ooo_check(row, cpu):
                     cpu.vector_saftey_check(v_instr=row["INSTRs"], VLR=row["val2"])
 
                     # set vector boundaries
@@ -342,14 +352,15 @@ class LoadStoreBuffer(ReservationStation):
 
                     # check dependencies
                     v_forwarding = cpu.rob.v_mem_disambiguate(row["INSTRs"], vstart=row["val1"], vend=row["INSTRs"].vend)
-                    # print("result forwarinding vld:", v_forwarding)
 
                     if v_forwarding:
                         row["INSTRs"].v_forwarding = v_forwarding # note these aren't actually the complete results, just dependecies found that contribute to the resultant binary
                         return self.__pop_row(i)
+                    else:
+                        return False
                         
                 #############
-                elif row["INSTRs"].type in {"VST"} and row["val1"] is not None and row["val2"] is not None and row["val3"] is not None:
+                elif row["INSTRs"].type in {"VST"} and row["val1"] is not None and row["val2"] is not None and row["val3"] is not None and self.non_ooo_check(row, cpu):
                     cpu.vector_saftey_check(v_instr=row["INSTRs"], VLR=row["val3"])
 
                     row["INSTRs"].vstart = int(row["val2"])
@@ -358,7 +369,7 @@ class LoadStoreBuffer(ReservationStation):
                     return self.__pop_row(i)
                 #############
                 
-                elif row["INSTRs"].type in {"VSTS"} and row["val1"] is not None and row["val2"] is not None and row["val3"] is not None and row["val4"] is not None:
+                elif row["INSTRs"].type in {"VSTS"} and row["val1"] is not None and row["val2"] is not None and row["val3"] is not None and row["val4"] is not None and self.non_ooo_check(row, cpu):
                     cpu.vector_saftey_check(v_instr=row["INSTRs"], VLR=row["val4"])
                     row["INSTRs"].stride_size = row["val3"]
 
@@ -367,7 +378,7 @@ class LoadStoreBuffer(ReservationStation):
 
                     return self.__pop_row(i)
                 #############
-                elif row["INSTRs"].type in {"VLDS"} and row["val1"] is not None and row["val2"] is not None and row["val3"] is not None :
+                elif row["INSTRs"].type in {"VLDS"} and row["val1"] is not None and row["val2"] is not None and row["val3"] is not None and self.non_ooo_check(row, cpu):
                     cpu.vector_saftey_check(v_instr=row["INSTRs"], VLR=row["val3"])
 
                     # set vector boundaries
@@ -380,5 +391,7 @@ class LoadStoreBuffer(ReservationStation):
                         row["INSTRs"].stride_size = row["val2"]
                         row["INSTRs"].v_forwarding = vs_forwarding
                         return self.__pop_row(i)
+                    else:
+                        return False
 
         return False

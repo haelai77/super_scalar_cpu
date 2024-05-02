@@ -32,7 +32,7 @@ class Rob:
         # end = self.commit_pointer
 
         count_bkwds = (count_bkwds - 1 + self.size) % self.size
-        while self.ROB.iloc[count_bkwds]["instr"] is not None:
+        while count_bkwds is not ((self.commit_pointer - 1 + self.size) % self.size):
             entry = self.ROB.iloc[count_bkwds]
 
             if entry["instr"].type in {"ST", "STPI"}:
@@ -42,7 +42,6 @@ class Rob:
                     return int(entry["result"])
                 # must still be waiting on reg on value to write to mem
                 elif entry["dst"] == load.effective_address and type(entry["result"]) in {str, np.str_}:
-                    # print(">>> dependency found <<<")
                     return False
                 
                 # note if destination is None Return False
@@ -87,7 +86,7 @@ class Rob:
 
         dependency_results = {}
 
-        while self.ROB.iloc[count_bkwds]["instr"] is not None:
+        while count_bkwds is not ((self.commit_pointer - 1 + self.size) % self.size):
             entry = self.ROB.iloc[count_bkwds]
             ########################
             #note if the store is within the bounds of the vector load
@@ -155,9 +154,9 @@ class Rob:
 
         dependency_results = {}
         vector_size = vend+1 - vstart
-        conflict_points = [i for i in range(vload.vstart, vload.vstart+(vector_size-1)*stride_size+1, stride_size)] # locations where vload will write
+        conflict_points = [i for i in range(int(vload.vstart), int(vload.vstart+(vector_size-1)*stride_size+1), int(stride_size))] # locations where vload will write
 
-        while self.ROB.iloc[count_bkwds]["instr"] is not None:
+        while count_bkwds is not ((self.commit_pointer - 1 + self.size) % self.size):
             entry = self.ROB.iloc[count_bkwds]
             ######################
             if entry["instr"].type in {"ST", "STPI"}:
@@ -191,9 +190,6 @@ class Rob:
                 store_points =  [i for i in range(entry["instr"].vstart, entry["instr"].vstart+(store_vector_size-1)*entry["instr"].stride_size+1, entry["instr"].stride_size)] # fixme
                 bin_words = self.splitbin(entry["result"], entry["instr"], conv_int=True)[-store_vector_size:]
 
-                # print(store_points, entry["instr"].vstart,    entry["instr"].vstart+store_vector_size*entry["instr"].stride_size,   entry["instr"].stride_size, store_vector_size)
-                # print(conflict_points, vload.vstart, vload.vstart+vector_size*stride_size, stride_size, vector_size)
-
                 # if conflict point is in store point add corresponding int at store point to dependencies 
                 for point in conflict_points:
                     if point in store_points and point not in dependency_results:
@@ -210,6 +206,7 @@ class Rob:
         """splits binary into word size"""
         chunks = []
         chunksize = instruction.bitpack_size if not t else instruction
+        binary = str(binary).zfill(64)
         for i in range(0, len(binary), chunksize):
             chunks.append(binary[i:i+chunksize])
 
@@ -220,11 +217,9 @@ class Rob:
     def writeresult(self, instr, cpu):
         """for writeresult to update result"""
 
-        if instr.type in {"ST", "STPI"}:
-            # print(f"writting results ~~~~~~~~~~~~~~~~~~ {instr}, {instr.result}, {instr.effective_address}, {(instr.effective_address is not None and instr.result is not None)}")
-            # done = 0 if not (instr.effective_address is not None and instr.result is not None) else 1
+        if instr.type in {"ST", "STPI", "STI"}:
             done = 1 if (instr.effective_address is not None and instr.result is not None) else 0
-            # if instr.result not filled then don't overwrite rob_entry["result"] with None as we want the phsyical register there so broadcasting can find it 
+
             if instr.result is None:
                 fields = ["dst"]
                 vals   = [instr.effective_address]
@@ -246,7 +241,7 @@ class Rob:
 
     def available(self):
         """checks if rob is available to accept entry"""
-        return self.ROB.iloc[self.dispatch_pointer]["instr"] == None
+        return len(self.ROB.dropna(subset=["instr"])) < self.size
 
     def add(self, instruction): # returns corresponding rob entry for dispatch
         """adds instructions to rob"""
@@ -290,9 +285,7 @@ class Rob:
     def broadcast(self, reg, result, vec = False):
         """broadcasts result to stores that are waiting for a result to store"""
         # broadcasting values to be stored to mem for store instructions as store acts as store buffer
-        # print("broadcasting")
-        # print(reg, result)
-        # print("broadcasting", result, "to", "reg", reg, vec)
+
         self.ROB.loc[(self.ROB["instr"].apply(self.__get_type)) & (self.ROB["result"] == reg), "instr"].apply(lambda instr: self.__apply_result(instr, result))
         self.ROB.loc[(self.ROB["instr"].apply(self.__get_type)) & (self.ROB["result"] == reg), "result"] = int(result) if not vec else result
         self.ROB.loc[(self.ROB["instr"].apply(self.__get_type)) & (self.ROB["result"] == result) & (self.ROB["dst"].str.contains("MEM")), "done"] = 1
@@ -323,10 +316,6 @@ class Rob:
             cpu.BTB.update(pc=rob_entry["instr"].pc, state_change=state_change)
 
         elif not cpu.dynamic:
-            # print("~~~~~~~~~~~~~~~~~",int(rob_entry["instr"].operands[2]), rob_entry["instr"].pc, rob_entry["instr"].branch_success)
-            # print("~~~~~~~~~~~~~~~~~", int(rob_entry["instr"].operands[2]) > rob_entry["instr"].pc and rob_entry["instr"].branch_success and cpu.static_BRA_style == "STATIC")
-            # print("~~~~~~~~~~~~~~~~~", int(rob_entry["instr"].operands[2]) < rob_entry["instr"].pc and not rob_entry["instr"].branch_success and cpu.static_BRA_style == "STATIC")
-
             
             if ((rob_entry["instr"].branch_success and cpu.static_BRA_style == "FIXED_never") or # we never take but was meant to
                 (not rob_entry["instr"].branch_success and cpu.static_BRA_style == "FIXED_always") or
@@ -343,8 +332,6 @@ class Rob:
     def commit(self, cpu):
         """writes rob-entry instruction into registers and sets rob entry to none/empty """
         ret = False
-        # print(cpu.RSB)
-
         for i in range(cpu.super_scaling):
             if self.ROB.iloc[self.commit_pointer]["instr"] and self.ROB.iloc[self.commit_pointer]["done"]:
                 ##################### NOTE counting bypasses
@@ -364,7 +351,7 @@ class Rob:
 
 
                 # if store write to memory else write to register
-                if rob_entry["instr"].type == "ST": 
+                if rob_entry["instr"].type in {"ST","STI"}: 
                     if rob_entry["result"] is not None:
                         cpu.MEM.write(rob_entry["dst"], rob_entry["result"])
                     else:
@@ -433,6 +420,7 @@ class Rob:
                         print("returning flushed")
                         cpu.instructions += 1
                         cpu.flushed = True#todo maybe boost cycles by 10 as flush punishment
+                        cpu.clk_cycles += 2
                         return True
                 ##############
                 elif rob_entry["instr"].type not in {"B", "J", "ST", "STPI", "LDPI"}: # arithmetic,load, etc instructions

@@ -26,9 +26,7 @@ class Instruction:
 
     def __repr__(self):
         if self.type in {"BGE","BLT", "BNE", "BEQ"}:
-            return f"{self.type}_{self.operands}_{self.branch_success}"
+            return f"{self.pc}{self.type}_{self.operands}_{self.branch_success}"
         if self.type in {"STPI", "LDPI"}:
-            s = [*list(self.operands), self.base_reg]
-            # print(s)
-            return f"{self.type}_{self.operands}_{self.base_reg}"
-        return f"{self.type}_{self.operands}_{self.result}"
+            return f"{self.pc}{self.type}_{self.operands}_{self.base_reg}"
+        return f"{self.pc}{self.type}_{self.operands}_{self.result}"

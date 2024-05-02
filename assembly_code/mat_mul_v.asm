@@ -1,0 +1,95 @@
+# matrix multiplication (HADAMARD PRODUCT) # unrolled
+# answer = (30,36,42)(66,81,96)(102,126,150)
+
+# set vector length to 3
+LDI VLR 3 
+
+#########################
+# matrix 1 row 1
+LDI R1 0
+STI 1 R1 R0
+
+ADDI R1 R1 1
+STI 2 R1 R0 
+
+ADDI R1 R1 1
+STI 3 R1 R0 
+
+# matrix 1 row 2
+ADDI R1 R1 1
+STI 4 R1 R0
+
+ADDI R1 R1 1
+STI 5 R1 R0
+
+ADDI R1 R1 1
+STI 6 R1 R0
+
+# matrix 1 row 3
+ADDI R1 R1 1
+STI 7 R1 R0
+
+ADDI R1 R1 1
+STI 8 R1 R0
+
+ADDI R1 R1 1
+STI 9 R1 R0
+######################### only 16 vector registers but we have renaming for 32
+
+LDI R1 1
+LDI R2 2
+LDI R3 3
+LDI R6 6
+
+VLD.16 V1 R0
+VLD.16 V2 R3
+VLD.16 V3 R6
+
+# load columns with load stride
+VLDS.16 V4 R0 R3
+VLDS.16 V5 R1 R3
+VLDS.16 V6 R2 R3
+
+######################## dot product vectors together
+VDOT.16 V7 V1 V4
+VDOT.16 V8 V1 V5
+VDOT.16 V9 V1 V6
+
+VDOT.16 V10 V2 V4
+VDOT.16 V11 V2 V5
+VDOT.16 V12 V2 V6
+
+VDOT.16 V13 V3 V4
+VDOT.16 V14 V3 V5
+VDOT.16 V15 V3 V6
+
+LDI VLR 1
+
+ADDI R11 R0 21
+VST.16 V7 R11
+
+ADDI R11 R0 22
+VST.16 V8 R11
+
+ADDI R11 R0 23
+VST.16 V9 R11
+
+ADDI R11 R0 24
+VST.16 V10 R11
+
+ADDI R11 R0 25
+VST.16 V11 R11
+
+ADDI R11 R0 26
+VST.16 V12 R11
+
+ADDI R11 R0 27
+VST.16 V13 R11
+
+ADDI R11 R0 28
+VST.16 V14 R11
+
+ADDI R11 R0 29
+VST.16 V15 R11
+
+HALT

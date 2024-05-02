@@ -189,6 +189,8 @@ class ALU:
         instruction.vend = instruction.vstart # Because when we sum up it all turns into 1 element
         vector1 = cpu.rob.splitbin(binary=self.instr["val1"], instruction=instruction, conv_int=True)
         vector2 = cpu.rob.splitbin(binary=self.instr["val2"], instruction=instruction, conv_int=True)
+        
+        # input(f"{vector1}, {vector2}, {instruction.operands}")
         summed = sum(list(map(lambda tup: tup[0] * tup[1], zip(vector1, vector2))))
         instruction.result = bin(summed)[2:].zfill(64)
 

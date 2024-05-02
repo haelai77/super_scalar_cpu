@@ -16,6 +16,7 @@ opcodes = {
     "LD"  : 0x06, # r1 <- memory[regs[R2] + regs[R3]] args: r1, r2, r3 # todo needs to be r1, r2 r4 where r1 <- mem[regs[r2] + regs[r3]]
     "LDI" : 0x07, # r1 <- immediate args: r1, immediate
     "ST"  : 0x08, # r1 -> memory[regs[R2] + regs[R3]]  args:  R1, R2, R3 # todo should be indexed as well 
+    "STI" : "??", # immediate -> memory[regs[R2] + regs[R3]]  args:  R1, R2, R3 # todo should be indexed as well 
 
     "LDPI": "??", # r1 <- mem[r2+r3] and r2 <- r2 + r3 # pre indexed
     "STPI": "??", # r1 -> mem[r2+r3] and r2 <- r2 + r3
@@ -30,8 +31,8 @@ opcodes = {
     "VST": "??", # v1, r1 STORE into v1 from mem starting at r1 address in mem 
 
     # R1 is start pointer for vector and R2 is stride length
-    "VLDS": "??", # v1, r1, r2 LOAD into v1 from mem starting at r1 address and then subsequent strides
-    "VSTS": "??", # v1, r1, r2 STORE into v1 from mem starting at r1 address and then subsequent strides
+    "VLDS": "??", # v1, r1, r2 LOAD into v1 from mem starting at r1 address and then subsequent strides r2
+    "VSTS": "??", # v1, r1, r2 STORE into v1 from mem starting at r1 address and then subsequent strides r2
 
     # branch to immediate operand (COMPARISON BETWEEN REGISTERS)
     "BEQ" : 0X09, # branch on equal a == b,       args: r1 r2 LABEL

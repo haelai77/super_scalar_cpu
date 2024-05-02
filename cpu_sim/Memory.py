@@ -20,7 +20,7 @@ class Memory:
                 raise Exception("Stride size is None")
             else:
                 vector_size = vend+1 - vstart
-                return self.mem.iloc[vstart : vstart+(vector_size-1)*stride_size+1 : stride_size].tolist()
+                return self.mem.iloc[int(vstart) : int(vstart+(vector_size-1)*stride_size+1) : int(stride_size)].tolist()
     
     def v_write(self, vstart, vend, int_list, stride=False, stride_size=None):
         if not stride:
@@ -36,4 +36,4 @@ class Memory:
                 # print(vstart,vstart+vector_size*stride_size,stride_size)
                 # print(int_list)
 
-                self.mem.iloc[vstart : vstart+(vector_size-1)*stride_size+1 : stride_size] = int_list
+                self.mem.iloc[int(vstart) : int(vstart+(vector_size-1)*stride_size+1) : int(stride_size)] = int_list

@@ -1,5 +1,6 @@
 from collections import deque
 import pandas as pd
+import numpy as np
 
 
 class LSU:
@@ -14,6 +15,7 @@ class LSU:
             "LD"    : self.LD, # address resolution
             "LDI"   : self.LDI,
             "ST"    : self.ST, # address resolution
+            "STI"  : self.STI,
             "STPI"  : self.STPI,
             "LDPI"  : self.LDPI,
             "VST"   : self.VST,
@@ -51,7 +53,7 @@ class LSU:
 
         ###################
         # broadcast results to reservation stations 
-        if instruction.type not in {"HALT", "ST", "VST", "VSTS", "BEQ", "BNE", "BLT", "BGT", "J", "B"}:
+        if instruction.type not in {"HALT", "ST", "STI", "VST", "VSTS", "BEQ", "BNE", "BLT", "BGT", "J", "B"}:
             
             for rs_type in ["ALU", "LSU", "BRA"]:
                 if instruction.type != "STPI": # not STPI because we still need to broad cast results for LDPI and STPI effec addr
@@ -91,7 +93,7 @@ class LSU:
         ''' takes immediate and stores it into register specified in instruction
         - r1 <- immediate'''
         instruction = self.instr["INSTRs"]
-        instruction.result = self.instr["immediate"]
+        instruction.result = int(self.instr["immediate"])
         return instruction
 
     def ST(self, cpu):
@@ -100,18 +102,25 @@ class LSU:
 
         # if there is a value able to be written back assign prep for CDB
         if self.instr["val1"] is not None and instruction.result is None:
-            instruction.result = (self.instr["val1"])
+            instruction.result = int(self.instr["val1"])
 
+        instruction.effective_address = f"MEM{int(self.instr["val2"]) + int(self.instr["val3"])}"
+        return instruction
+    
+    def STI(self, cpu):
+        """stores immediate into memory"""
+        instruction = self.instr["INSTRs"]
+        instruction.result = self.instr["immediate"]
         instruction.effective_address = f"MEM{int(self.instr["val2"]) + int(self.instr["val3"])}"
         return instruction
     
     def STPI(self,cpu):
         instruction = self.instr["INSTRs"]
         if self.instr["val1"] is not None and instruction.result is None:
-            instruction.result = (self.instr["val1"])
-
+            instruction.result = int(self.instr["val1"])
+        if type(self.instr["val2"]) in {str, np.str_}:
+            self.instr["val2"] = int(self.instr["val2"][3:])
         instruction.effective_address = f"MEM{int(self.instr["val2"]) + int(self.instr["val3"])}"
-        # print("lsu",instruction.effective_address, int(self.instr["val2"]), int(self.instr["val3"]))
         return instruction
 
     def LDPI(self,cpu):

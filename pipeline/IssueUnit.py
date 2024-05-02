@@ -23,7 +23,7 @@ class IssueUnit:
                 rob_entry = cpu.rob.add(instr)
 
                 # if you are writing to a regsiter you need to set ready bit in PRF/scordboard to false
-                if instr.type not in {"ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "HALT", "NOP", "STPI", "VST", "VLD", "VADD", "VSUB", "VDIV", "VMUL", "VSTS", "VLDS", "VDOT"}: 
+                if instr.type not in {"ST", "STI", "BEQ", "BNE", "BLT", "BGT", "J", "B", "HALT", "NOP", "STPI", "VST", "VLD", "VADD", "VSUB", "VDIV", "VMUL", "VSTS", "VLDS", "VDOT"}: 
                     cpu.PRF.set_unready(reg=instr.operands[0])
 
                     # set corresponding rob entry that will write to physical register
@@ -47,17 +47,17 @@ class IssueUnit:
 
             RS_type = "ALU" 
 
-            if instr.type in {"ST", "LD", "LDI", "STPI", "LDPI", "VST", "VLD", "VSTS", "VLDS"}: # Reservation station type is LSU
+            if instr.type in {"ST", "STI", "LD", "LDI", "STPI", "LDPI", "VST", "VLD", "VSTS", "VLDS"}: # Reservation station type is LSU
                 RS_type = "LSU"
 
             elif instr.type in {"BEQ", "BNE", "BLT", "BGT", "J", "B"}:
                 RS_type = "BRA"
 
+
             #NOTE: if rs bypass on and eu free then dispatch straight away without putting stuff into rs
-            if cpu.rs_bypass: # and instr.type:
+            if cpu.ooo and cpu.rs_bypass: # and instr.type:
                 if self.attempt_bypass(cpu=cpu, instr=instr, rs_type=RS_type):
                     return True
-
             #doesn't bypass if rob and rs full but should be able to if execution unit 
             # check for structural hazards
             if cpu.rob.available() and cpu.RS[RS_type].available():
@@ -67,7 +67,7 @@ class IssueUnit:
                 rob_entry = cpu.rob.add(instr)
 
                 # if you are writing to a regsiter you need to set ready bit in PRF/scordboard to false
-                if instr.type not in {"ST", "BEQ", "BNE", "BLT", "BGT", "J", "B", "HALT", "NOP", "STPI", "VST", "VLD", "VADD", "VSUB", "VDIV", "VMUL", "VSTS", "VLDS", "VDOT"}: 
+                if instr.type not in {"ST", "STI", "BEQ", "BNE", "BLT", "BGT", "J", "B", "HALT", "NOP", "STPI", "VST", "VLD", "VADD", "VSUB", "VDIV", "VMUL", "VSTS", "VLDS", "VDOT"}: 
                     # set bit unready
                     # if instr.type == "ADDI" and instr.operands[0] == "P9":
                     cpu.PRF.set_unready(reg=instr.operands[0])
@@ -76,16 +76,15 @@ class IssueUnit:
                     cpu.PRF.set_rob_entry(reg=instr.operands[0], rob_entry=rob_entry)
                 #######################
                 #NOTE special case for STPI AND LDPI
-                if instr.type in {"STPI", "LDPI"}: # different rob entry for base pointer
+                elif instr.type in {"STPI", "LDPI"}: # different rob entry for base pointer
                     cpu.PRF.set_unready(reg=instr.base_reg) # set second register we're writing to as unready
                     cpu.PRF.set_rob_entry(reg=instr.base_reg, rob_entry=rob_entry+"_base") # set rob entry
                 #######################
                 #NOTE special case for vector isntructions
-                if instr.type in {"VLD", "VADD", "VSUB", "VDIV", "VMUL", "VLDS", "VDOT"}:
+                elif instr.type in {"VLD", "VADD", "VSUB", "VDIV", "VMUL", "VLDS", "VDOT"}:
                     cpu.VRF.set_unready(reg=instr.operands[0])
                     cpu.VRF.set_rob_entry(reg=instr.operands[0], rob_entry=rob_entry)
 
-                print(instr)
                 cpu.RS[RS_type].add(instr, cpu, bypass_on=False)
                 
                 print(f"Issued: {instr} to RS_{RS_type}")

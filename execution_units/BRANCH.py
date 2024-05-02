@@ -67,6 +67,7 @@ class BRANCH:
 
     def BGT(self, instr):
         '''branch if value in first register is greater than '''
+        print(instr["val1"], instr["val2"], instr["immediate"])
         if instr["val1"] > instr["val2"]:
             instr["INSTRs"].branch_success = True
         return instr["INSTRs"]

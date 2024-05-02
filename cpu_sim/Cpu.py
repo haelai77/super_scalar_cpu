@@ -12,15 +12,16 @@ from .BTB import BTB
 from RS.ReservationStation import ReservationStation
 from RS.LoadStoreBuffer import LoadStoreBuffer
 from RS.Branch_RS import Branch_RS
-import copy
+import sys, os
 
 class Cpu:
     def __init__(self, instr_cache, fetch_unit, decode_unit, dispatch_unit, issue_unit, execute_units, writeresult_unit, pipelined = False,
-                 dynamic=False, stat_style="FIXED_always", dyna_style="DYNAMIC_1bit", super_scaling=1, ooo=False, bra_pred=False, rs_bypass=False, file=None):
+                 dynamic=False, stat_style="FIXED_always", dyna_style="DYNAMIC_1bit", super_scaling=1, ooo=False, bra_pred=False, rs_bypass=False, file=None,
+                 rob_size=128):
         self.file = file
 
         self.pipelined = pipelined
-        
+        self.rob_size = rob_size
         self.ooo = ooo
         self.next = deque([])
 
@@ -63,7 +64,7 @@ class Cpu:
         self.MEM: Memory = Memory()
         self.PRF: Register_File = Register_File(num_regs = 64) # physical register file
         self.INSTR_CACHE = instr_cache # from assembler
-        self.INSTR_BUFF = deque(maxlen = super_scaling) # instruction queue for speculative fetch and decode / stage between fetch and decode
+        self.INSTR_BUFF = deque(maxlen = 128) # instruction queue for speculative fetch and decode / stage between fetch and decode
         self.IQ         = deque(maxlen = 128) # instruction queue / stage between decode and issue
 
         ########## vector stuff
@@ -72,7 +73,7 @@ class Cpu:
         #################
         
         #addons
-        self.rob = Rob(size=64) # 128 entries
+        self.rob = Rob(size=rob_size) # 128 entries
         self.rat = Rat(cpu=self) # frontend rat holds possible speculative state of the machine
         self.rrat = self.rat.RAT.copy(deep=True) # retirement rat for knowing which physical register to free
         self.r_freelist = self.rat.freelist.copy()
@@ -103,7 +104,6 @@ class Cpu:
 
     def vector_saftey_check(self, v_instr, VLR):
         MVL = 64/v_instr.bitpack_size
-        print(VLR)
         if MVL < int(VLR):
             raise Exception("Vector Length exceeds maximum vector size i.e. bits per element * vector length > register size")
 
@@ -222,7 +222,6 @@ class Cpu:
                         self.flushed = False
                         break
  
-                # print(self.RS["BRA"].stations.to_string())
                     
                 self.clk_cycles += 1
 
@@ -237,11 +236,14 @@ class Cpu:
                 # print(self.PRF.rf[self.PRF.rf["ready"].notnull()])
                 # print("~~~~~~~~~~~ VRF")
                 # self.print_vector_regs()
-                # print("~~~~~~~~~~~ mem")
-                # print(*self.MEM.mem, sep=" ")
+                print("~~~~~~~~~~~ mem")
+                print(*self.MEM.mem, sep=" ")
                 # print(self.RS["ALU"].stations.to_string())
                 # print(self.RS["LSU"].stations.to_string())
                 # print(self.RS["BRA"].stations.to_string())
+                print(f"instructions: {self.instructions}")
+                print("IPC:", round(self.instructions/self.clk_cycles, 4))
+
 
                 if self.debug:
                     print("## rsb")
@@ -279,6 +281,7 @@ class Cpu:
 
                 self.clk_cycles += 1
 
+
             ### step mode ###
             
             if step_toggle == -1:
@@ -291,6 +294,7 @@ class Cpu:
 
             print(f"################################# clock: {self.clk_cycles}")
 
+        sys.stdout = sys.__stdout__
         print("FIN")
         print("##################### RREGS #####################")
         print(*[f"R{n}:{self.PRF.get_reg_val(self.rat.check(f"R{n}"))}" for n in range(32) if self.rat.check(f"R{n}")])
@@ -313,6 +317,7 @@ class Cpu:
         print("bra bypass_count:", self.BRA_byp_counter)
         print("bypass_count:", self.bypass_counter)
         print(F"flush counter: {self.flush_counter}")
+        print(F"Branch count: {self.branch_count}")
         print(f"acc: {(self.branch_count-self.flush_counter)/self.branch_count if self.branch_count != 0 else None}")
         print(f"super scaling: { self.super_scaling}")
         print(f"ALUs: {len([u for u in self.execute_units if u.RS_type == "ALU"])}")
@@ -321,10 +326,13 @@ class Cpu:
         print(f"stat style: {self.static_BRA_style}")
         print(f"dynamic: {self.dynamic}")
         print(f"dyna style: {self.dyna_BRA_style}")
+        print(f"robsize: {self.rob_size}")
         print(f"file: {self.file}")
         print("## BTB")
         print(self.BTB.BTB)
 
+#main.py -pipelined -ooo -bra_pred -n_alu 4 -n_lsu 2 -n_bra 2 -static_style STATIC -dynamic -super_scaling 4 -step -1 -rs_bypass -no_print -f bubble_sort.asm  -rob_size 4
 
 # python main.py -pipelined -ooo -rs_bypass -bra_pred -dynamic -super_scaling 4 -n_alu 4 -n_lsu 2 -n_bra 2
-# python main.py 
+
+# python main.py -pipelined -ooo -bra_pred -static_style STATIC -dynamic -super_scaling 1 -n_alu 4 -n_lsu 2 -n_bra 2 -rs_bypass

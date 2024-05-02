@@ -24,7 +24,6 @@ CHECKEND:
 
     ST R6 R0 R0
     BEQ R6 R1 END
-
 ########### we do n + 1 for for loop
 ADDI R6 R6 1
 
@@ -39,7 +38,6 @@ FIBSTEP:
     # b = c (STORE c into MEM1 and load into b (R3))
     ST R4 R0 R0
     LD R3 R0 R0
-
     # increase step
     ADDI R5 R5 1
     BNE R5 R6 FIBSTEP
