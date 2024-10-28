@@ -1,5 +1,5 @@
-# aca
-Super scalar pipelined processor simulator - Leo Lai<br />
+
+## Super scalar pipelined processor simulator - Leo Lai<br />
 
 REQUIRES:<br />
 python 3.12.1<br />
